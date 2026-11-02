@@ -254,7 +254,7 @@
 
 <script>
 "use strict";
-const SAVE_KEY = "fortalezaEternaCyberHardcoreV1"; 
+const SAVE_KEY = "fortalezaEternaCyberHardcoreV2"; 
 const TILE = 32;
 const MAX_RANKING = 20;
 
@@ -265,7 +265,7 @@ const WORLDS = [
 ];
 
 const BASE_TOWER = {
-  ico: "💠", cost: 95, // Custo base mais elevado
+  ico: "💠", cost: 95,
   levels: [
     { name:"Emissor Base", dmg:4,  range:105, rate:28, color:"#00f0ff", size:0.32 },
     { name:"Emissor Duplo", dmg:9,  range:115, rate:26, color:"#0096c7", size:0.36 }
@@ -339,7 +339,7 @@ function saveProgress(force) {
   catch(e) { storageAvailable = false; }
 }
 
-let gold = 0, lives = 10, maxLives = 10, wave = 1, world = 1, score = 0; // Vidas iniciais reduzidas para 10
+let gold = 0, lives = 10, maxLives = 10, wave = 1, world = 1, score = 0;
 let running = false, gameOverFlag = false, paused = false;
 let selectedTower = null;
 let towers = [], enemies = [], projectiles = [], particles = [], floats = [], skeletons = [];
@@ -369,7 +369,7 @@ function floatText(x,y,txt,color){ floats.push({x,y,txt,color,life:1,vy:-0.9}); 
 
 function talentLvl(id){ return persistent.talents[id] || 0; }
 function ascLevel(){ return persistent.ascensionLevel || 0; }
-function ascHpFactor()    { return Math.pow(1.15, ascLevel()); } // Escalonamento HP mais forte
+function ascHpFactor()    { return Math.pow(1.15, ascLevel()); }
 function ascSpeedFactor() { return 1 + ascLevel() * 0.025; }
 function ascGoldFactor()  { return Math.max(0.40, 1 - ascLevel() * 0.035); }
 function dmgMul()       { return (1 + talentLvl("force")*0.10) * (1 + ascLevel()*0.05); }
@@ -379,7 +379,7 @@ function rateMul()      { return 1 - talentLvl("speed")*0.08; }
 function startGoldBonus(){ return talentLvl("heritage")*30 + (ascLevel() * 40); }
 function startLivesBonus(){ return talentLvl("vital")*2; }
 function maxTowers()    { 
-  let baseLimit = 14; // Limite de torres reduzido para forçar escolhas estritas
+  let baseLimit = 14;
   let n = baseLimit + ascLevel()*2; 
   if (ascLevel()>=1) n += 2; 
   return n; 
@@ -520,6 +520,17 @@ function resizeCanvas(){
 function showBuildMenu(cell){
   if (cell.tower !== null || (cell.r === startCell.r && cell.c === startCell.c) || (cell.r === endCell.r && cell.c === endCell.c)) return;
   
+  // Validação preventiva: verifica se colocar a torre bloqueia o caminho antes de abrir o menu
+  cell.tower = { placeholder: true };
+  const canPass = recalculatePath();
+  cell.tower = null;
+  recalculatePath(); // Restaura trajeto original
+
+  if (!canPass) {
+    showInfo("🚫 Rota bloquearia a base!");
+    return;
+  }
+
   pendingBuildSlot = cell;
   paused = true; buildMenu.classList.add("show"); 
   buildList.innerHTML = "";
@@ -566,6 +577,7 @@ function buildTower(cell){
 
   if (!canPass) {
     showInfo("🚫 Rota bloqueada!");
+    recalculatePath();
     return;
   }
 
@@ -650,7 +662,7 @@ function spawnEnemy(type, waveNum, worldNum){
   if (currentPath.length === 0) return;
 
   const worldFactor = 1 + (worldNum - 1) * 0.45;
-  let baseScale = 0.18 + Math.floor((waveNum - 1) / 4) * 0.06; // Aumento mais agressivo de dificuldade por vaga
+  let baseScale = 0.18 + Math.floor((waveNum - 1) / 4) * 0.06;
   if (waveNum > 20) baseScale *= 1.35;
   let tierBonus = 1 + Math.floor(waveNum / 8) * 0.25;
   if (waveNum % 5 === 0) tierBonus += 0.20;
@@ -893,12 +905,13 @@ function render(){
     }
   }
 
+  // Linha de Rota dos Inimigos Suavizada e Estável
   if (currentPath.length > 1) {
-    ctx.strokeStyle = "rgba(0,240,255,0.15)"; ctx.lineWidth = TILE * 0.6; ctx.lineCap = "round"; ctx.lineJoin = "round";
+    ctx.strokeStyle = "rgba(0,240,255,0.12)"; ctx.lineWidth = TILE * 0.55; ctx.lineCap = "round"; ctx.lineJoin = "round";
     ctx.beginPath(); currentPath.forEach((p, i) => { i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y); }); ctx.stroke();
     
-    ctx.strokeStyle = "#00f0ff"; ctx.lineWidth = 2; ctx.setLineDash([6, 10]);
-    ctx.shadowColor = "#00f0ff"; ctx.shadowBlur = 8;
+    ctx.strokeStyle = "#00f0ff"; ctx.lineWidth = 2.5; ctx.setLineDash([8, 8]);
+    ctx.shadowColor = "#00f0ff"; ctx.shadowBlur = 10;
     ctx.beginPath(); currentPath.forEach((p, i) => { i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y); }); ctx.stroke(); 
     ctx.setLineDash([]); ctx.shadowBlur = 0;
   }
@@ -971,7 +984,7 @@ function updateHUD(){
   goldLbl.textContent = Math.floor(gold || 0); essLbl.textContent = persistent.essence; scoreLbl.textContent = Math.floor(score || 0);
   lifeLbl.textContent = Math.max(0, lives || 0); waveLbl.textContent = wave || 1; ascLbl.textContent = ascLevel();
   speedBtn.textContent = speedMul + "x"; convGoldTxt.textContent = Math.floor(gold || 0);
-  if (!running) { const wpEl = document.getElementById("waveProgress"); if (wpEl) wpEl.style.width = "0%0"; }
+  if (!running) { const wpEl = document.getElementById("waveProgress"); if (wpEl) wpEl.style.width = "0%"; }
   hudDirty = false;
 }
 
@@ -1131,7 +1144,7 @@ ovBtn.addEventListener("click", () => {
 function startNewGame(fromAscension){
   overlay.classList.remove("show"); branchScreen.classList.remove("show"); rankingScreen.classList.remove("show"); ascendScreen.classList.remove("show"); buildMenu.classList.remove("show"); popup.classList.remove("show");
   gameOverFlag = false; paused = false; pauseBadge.classList.remove("show"); persistent.savedState = null;
-  gold = 130 + startGoldBonus(); maxLives = 10 + startLivesBonus(); lives = maxLives; wave = 1; world = 1; score = 0; running = false; // Créditos iniciais ajustados
+  gold = 130 + startGoldBonus(); maxLives = 10 + startLivesBonus(); lives = maxLives; wave = 1; world = 1; score = 0; running = false;
   selectedTower = null; pendingBranchTower = null; pendingBuildSlot = null; enemies = []; projectiles = []; particles = []; floats = []; skeletons = []; spawnQueue = []; spawnTimer = 0;  killsThisRun = 0; towersBuiltThisRun = 0; speedMul = 1; 
   
   for(let r=0; r<gridRows; r++){
