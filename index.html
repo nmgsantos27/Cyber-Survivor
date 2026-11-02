@@ -545,12 +545,16 @@ function showBuildMenu(slot){
   btn.className = "build-item" + (gold < BASE_TOWER.cost ? " disabled" : "");
   btn.innerHTML = '<div class="bico">🏹</div><div class="binfo"><div class="bnm">Arqueiro</div><div class="bdesc">Evolui para 7 ramos únicos</div></div><div class="bcost">' + BASE_TOWER.cost + '🪙</div>';
   
-  // Previne o clique fantasma: o botão só fica ativo após 300ms
-  btn.style.pointerEvents = "none";
-  setTimeout(() => { btn.style.pointerEvents = "auto"; }, 300);
+  // PROTEÇÃO CONTRA CLIQUE FANTASMA (sem timeout que bloqueia o jogo)
+  let clickLocked = true;
+  setTimeout(() => { clickLocked = false; }, 250);
 
   if (gold >= BASE_TOWER.cost && towers.length < maxTowers()) { 
-    btn.addEventListener("click", () => { buildTower(pendingBuildSlot); hideBuildMenu(); }); 
+    btn.addEventListener("click", (e) => { 
+      if (clickLocked) return; // Ignora se o clique for imediato
+      buildTower(pendingBuildSlot); 
+      hideBuildMenu(); 
+    }); 
   }
   
   buildList.appendChild(btn);
