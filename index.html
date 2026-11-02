@@ -12,7 +12,8 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="GridRunner">
-<link rel="apple-touch-icon" href="./icon.png">
+<link id="dynamicFavicon" rel="icon" type="image/png">
+<link id="dynamicAppleIcon" rel="apple-touch-icon">
 
 <style>
   * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
@@ -84,7 +85,67 @@
 
 <script>
 "use strict";
-const SAVE_KEY = "gridRunnerBestScoreV7";
+
+// Gerador Automático de Ícone App para Telemóvel
+(function generateAppIcon() {
+  const iconCv = document.createElement('canvas');
+  iconCv.width = 512; iconCv.height = 512;
+  const ictx = iconCv.getContext('2d');
+
+  const grad = ictx.createRadialGradient(256, 256, 0, 256, 256, 256);
+  grad.addColorStop(0, '#070e22');
+  grad.addColorStop(1, '#03050c');
+  ictx.fillStyle = grad;
+  ictx.beginPath();
+  ictx.roundRect(0, 0, 512, 512, 110);
+  ictx.fill();
+
+  ictx.strokeStyle = '#00f0ff';
+  ictx.lineWidth = 8;
+  ictx.globalAlpha = 0.4;
+  ictx.beginPath();
+  ictx.roundRect(32, 32, 448, 448, 90);
+  ictx.stroke();
+  ictx.globalAlpha = 1.0;
+
+  ictx.strokeStyle = '#ff0055';
+  ictx.lineWidth = 12;
+  ictx.shadowColor = '#ff0055';
+  ictx.shadowBlur = 15;
+  ictx.beginPath();
+  ictx.moveTo(256, 90); ictx.lineTo(400, 174); ictx.lineTo(400, 338);
+  ictx.lineTo(256, 422); ictx.lineTo(112, 338); ictx.lineTo(112, 174);
+  ictx.closePath();
+  ictx.stroke();
+
+  ictx.fillStyle = 'rgba(0, 240, 255, 0.15)';
+  ictx.strokeStyle = '#00f0ff';
+  ictx.lineWidth = 10;
+  ictx.shadowColor = '#00f0ff';
+  ictx.shadowBlur = 15;
+  ictx.beginPath();
+  ictx.moveTo(256, 130); ictx.lineTo(366, 194); ictx.lineTo(366, 318);
+  ictx.lineTo(256, 382); ictx.lineTo(146, 318); ictx.lineTo(146, 194);
+  ictx.closePath();
+  ictx.fill();
+  ictx.stroke();
+
+  ictx.fillStyle = '#00f0ff';
+  ictx.beginPath();
+  ictx.arc(256, 256, 65, 0, Math.PI * 2);
+  ictx.fill();
+
+  ictx.fillStyle = '#fff';
+  ictx.beginPath();
+  ictx.arc(256, 256, 30, 0, Math.PI * 2);
+  ictx.fill();
+
+  const iconDataUrl = iconCv.toDataURL('image/png');
+  document.getElementById('dynamicFavicon').href = iconDataUrl;
+  document.getElementById('dynamicAppleIcon').href = iconDataUrl;
+})();
+
+const SAVE_KEY = "gridRunnerBestScoreV8";
 let bestScore = 0;
 try { const saved = localStorage.getItem(SAVE_KEY); if (saved) bestScore = parseInt(saved, 10) || 0; } catch(_) {}
 
