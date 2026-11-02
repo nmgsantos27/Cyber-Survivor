@@ -4,9 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="theme-color" content="#070a14">
-<title>Fortaleza Eterna</title>
+<title>Fortaleza Eterna: Labirinto</title>
 
-<!-- Suporte para PWA e Instalação (Manifesto e iOS) -->
+<!-- Suporte para PWA e Instalação -->
 <link rel="manifest" href="./manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -153,7 +153,7 @@
   <div id="buildMenu">
     <div class="menu-card">
       <div class="menu-head">
-        <div class="menu-title">🏰 Construir</div>
+        <div class="menu-title">🏰 Construir Torre</div>
         <button class="menu-close" id="buildClose">✕</button>
       </div>
       <div id="buildList"></div>
@@ -240,7 +240,7 @@
 
   <div id="overlay">
     <div class="ov-title">Fim de Jogo</div>
-    <div class="ov-sub">A torre caiu na vaga <span id="ovWave">1</span>!</div>
+    <div class="ov-sub">A base caiu na vaga <span id="ovWave">1</span>!</div>
     <div class="ov-stats">
       <div class="ov-stat"><div class="v" id="ovWave2">0</div><div class="l">Vagas</div></div>
       <div class="ov-stat"><div class="v" id="ovScore">0</div><div class="l">Pontos</div></div>
@@ -254,50 +254,49 @@
 </div>
 <script>
 "use strict";
-const SAVE_KEY = "fortalezaEternaV7"; 
-const TILE = 36;
-const BASE_MAX_TOWERS = 10;
+const SAVE_KEY = "fortalezaEternaMazeV1"; 
+const TILE = 32;
 const MAX_RANKING = 20;
 
 const WORLDS = [
-  { id:1, name:"Prado Verde",    bg:"#0a1020", path:"#4a3b2c", pathDash:"#7a6046" },
-  { id:2, name:"Deserto Árido",  bg:"#1a150a", path:"#5c4d32", pathDash:"#8c754d" },
+  { id:1, name:"Prado Verde",    bg:"#0a1020", path:"#2d3a4f", pathDash:"#4a607a" },
+  { id:2, name:"Deserto Árido",  bg:"#1a150a", path:"#4a3b2c", pathDash:"#7a6046" },
   { id:3, name:"Vulcão Sombrio", bg:"#1a0a0a", path:"#422020", pathDash:"#733535" }
 ];
 
 const BASE_TOWER = {
-  ico: "🏹", cost: 75,
+  ico: "🏹", cost: 70,
   levels: [
-    { name:"Arqueiro", dmg:4,  range:125, rate:26, color:"#4ecdc4", size:0.30 },
-    { name:"Besteiro", dmg:10, range:135, rate:24, color:"#26a69a", size:0.35 }
+    { name:"Arqueiro", dmg:4,  range:110, rate:26, color:"#4ecdc4", size:0.30 },
+    { name:"Besteiro", dmg:10, range:120, rate:24, color:"#26a69a", size:0.35 }
   ]
 };
 
 const BRANCHES = {
-  damage: { ico: "🎯", name: "Atirador", color: "#4ecdc4", tagline: "Dano puro. Anti-boss.", special: null, unlockAsc: 0, levels: [ { name:"Atirador Elite", dmg:28, range:145, rate:24, color:"#00897b", size:0.40 }, { name:"Sniper", dmg:65, range:165, rate:22, color:"#00695c", size:0.46 }, { name:"Lenda Viva", dmg:160,range:190, rate:20, color:"#004d40", size:0.52 }, { name:"Caçador Deuses", dmg:400,range:210, rate:18, color:"#1a237e", size:0.56 }, { name:"Semideus", dmg:980,range:235, rate:16, color:"#311b92", size:0.60 }, { name:"Divindade", dmg:2450,range:260,rate:14, color:"#ffd700", size:0.64 }, { name:"Titã", dmg:6100,range:290,rate:12, color:"#ff6f00", size:0.68 }, { name:"Mito", dmg:15200,range:320,rate:10,color:"#ff1744", size:0.72 } ] },
-  ice: { ico: "❄️", name: "Caçador", color: "#81d4fa", tagline: "Gelo. Abranda todos.", special: "slow", slow: 0.5, unlockAsc: 0, levels: [ { name:"Caçador", dmg:11, range:130, rate:36, color:"#4fc3f7", size:0.40 }, { name:"Congelador", dmg:30, range:145, rate:33, color:"#29b6f6", size:0.46 }, { name:"Era Glacial", dmg:75, range:165, rate:30, color:"#0288d1", size:0.52 }, { name:"Inverno Eterno", dmg:190, range:180, rate:28, color:"#01579b", size:0.56 }, { name:"Zero Absoluto", dmg:470, range:200, rate:26, color:"#0d47a1", size:0.60 }, { name:"Era Gelo", dmg:1150,range:220, rate:24, color:"#000051", size:0.64 }, { name:"Glaciação", dmg:2900,range:245, rate:22, color:"#00b8d4", size:0.68 }, { name:"Fim Tempos", dmg:7200,range:270, rate:20, color:"#00e5ff", size:0.72 } ] },
-  splash: { ico: "💣", name: "Bombardeiro", color: "#ff9800", tagline: "Explosão em área.", special: "splash", splash: 65, unlockAsc: 0, levels: [ { name:"Bombardeiro", dmg:22, range:120, rate:60, color:"#f57c00", size:0.42 }, { name:"Artilharia", dmg:60, range:135, rate:55, color:"#e65100", size:0.48 }, { name:"Cataclismo", dmg:150,range:155, rate:50, color:"#bf360c", size:0.55 }, { name:"Meteoro", dmg:370,range:175, rate:45, color:"#8d2f00", size:0.58 }, { name:"Apocalipse", dmg:900,range:195, rate:42, color:"#4a1500", size:0.62 }, { name:"Extinção", dmg:2200,range:215,rate:38, color:"#ff3d00", size:0.66 }, { name:"Big Bang", dmg:5400,range:240,rate:35, color:"#ff9100", size:0.70 }, { name:"Juízo Final", dmg:13500,range:265,rate:32,color:"#ffea00", size:0.74 } ] },
-  chain: { ico: "⚡", name: "Eletricista", color: "#ffd700", tagline: "Salta entre inimigos.", special: "chain", chain: 4, unlockAsc: 0, levels: [ { name:"Eletricista", dmg:20, range:140, rate:40, color:"#ffb300", size:0.40 }, { name:"Tempestade", dmg:52, range:160, rate:36, color:"#ff8f00", size:0.46 }, { name:"Fúria Deuses", dmg:140,range:185, rate:32, color:"#e65100", size:0.52 }, { name:"Trovão", dmg:340,range:205, rate:30, color:"#ff6f00", size:0.56 }, { name:"Relâmpago Eterno", dmg:850,range:225, rate:28, color:"#ffca28", size:0.60 }, { name:"Tempestade Cósmica",dmg:2100,range:250,rate:26,color:"#ffee58", size:0.64 }, { name:"Fúria Celestial", dmg:5200,range:275, rate:24, color:"#fff59d", size:0.68 }, { name:"Deus Trovão", dmg:12500,range:300,rate:22,color:"#ffff00", size:0.72 } ] },
-  poison: { ico: "☠️", name: "Alquimista", color: "#9ccc65", tagline: "Veneno contínuo.", special: "poison", poisonDmg: 6, unlockAsc: 0, levels: [ { name:"Alquimista", dmg:14, range:125, rate:34, color:"#7cb342", size:0.40 }, { name:"Envenenador", dmg:32, range:140, rate:32, color:"#689f38", size:0.46 }, { name:"Apocalipse", dmg:85, range:160, rate:28, color:"#33691e", size:0.52 }, { name:"Praga", dmg:210,range:180, rate:26, color:"#1b5e20", size:0.56 }, { name:"Peste Negra", dmg:530,range:200, rate:24, color:"#004d40", size:0.60 }, { name:"Toxina Final",dmg:1350,range:220,rate:22, color:"#66bb6a", size:0.64 }, { name:"Pandemia", dmg:3400,range:245,rate:20, color:"#00e676", size:0.68 }, { name:"Fim Vida", dmg:8200,range:270,rate:18, color:"#b2ff59", size:0.72 } ] },
-  fire: { ico: "🔥", name: "Piromante", color: "#ff5722", tagline: "Fogo em área. Queima.", special: "fire", unlockAsc: 5, levels: [ { name:"Piromante", dmg:24, range:130, rate:42, color:"#ff5722", size:0.42 }, { name:"Mago Fogo", dmg:58, range:145, rate:40, color:"#e64a19", size:0.48 }, { name:"Senhor Chamas", dmg:145,range:165,rate:36,color:"#bf360c", size:0.54 }, { name:"Inferno", dmg:360,range:185, rate:32, color:"#8d2f00", size:0.58 }, { name:"Fogueira Eterna",dmg:880,range:205,rate:28,color:"#ff3d00", size:0.62 }, { name:"Apocalipse Ígneo",dmg:2200,range:225,rate:26,color:"#ff6e40", size:0.66 }, { name:"Sol Vivo", dmg:5400,range:250, rate:24, color:"#ff9100", size:0.70 }, { name:"Estrela", dmg:13500,range:275,rate:22,color:"#ffea00", size:0.74 } ] },
-  necro: { ico: "💀", name: "Necromante", color: "#b39ddb", tagline: "Invoca esqueletos.", special: "necro", unlockAsc: 9, levels: [ { name:"Necromante", dmg:16, range:125, rate:48, color:"#7e57c2", size:0.42 }, { name:"Invocador", dmg:42, range:140, rate:44, color:"#5e35b1", size:0.48 }, { name:"Senhor Mortos", dmg:105,range:160,rate:40,color:"#4527a0", size:0.54 }, { name:"Ceifador", dmg:270,range:180, rate:36, color:"#311b92", size:0.58 }, { name:"Mestre Almas",dmg:680,range:200,rate:32,color:"#6a1b9a", size:0.62 }, { name:"Deus Morte", dmg:1750,range:225,rate:28,color:"#8e24aa", size:0.66 }, { name:"Ceifador Mundos",dmg:4300,range:250,rate:26,color:"#ab47bc", size:0.70 }, { name:"Necrosupremo", dmg:11500,range:275,rate:24,color:"#ce93d8", size:0.74 } ] }
+  damage: { ico: "🎯", name: "Atirador", color: "#4ecdc4", tagline: "Dano puro. Anti-boss.", special: null, unlockAsc: 0, levels: [ { name:"Atirador Elite", dmg:28, range:135, rate:24, color:"#00897b", size:0.40 }, { name:"Sniper", dmg:65, range:155, rate:22, color:"#00695c", size:0.46 }, { name:"Lenda Viva", dmg:160,range:180, rate:20, color:"#004d40", size:0.52 }, { name:"Caçador Deuses", dmg:400,range:200, rate:18, color:"#1a237e", size:0.56 }, { name:"Semideus", dmg:980,range:225, rate:16, color:"#311b92", size:0.60 }, { name:"Divindade", dmg:2450,range:250,rate:14, color:"#ffd700", size:0.64 }, { name:"Titã", dmg:6100,range:280,rate:12, color:"#ff6f00", size:0.68 }, { name:"Mito", dmg:15200,range:310,rate:10,color:"#ff1744", size:0.72 } ] },
+  ice: { ico: "❄️", name: "Caçador", color: "#81d4fa", tagline: "Gelo. Abranda todos.", special: "slow", slow: 0.5, unlockAsc: 0, levels: [ { name:"Caçador", dmg:11, range:120, rate:36, color:"#4fc3f7", size:0.40 }, { name:"Congelador", dmg:30, range:135, rate:33, color:"#29b6f6", size:0.46 }, { name:"Era Glacial", dmg:75, range:155, rate:30, color:"#0288d1", size:0.52 }, { name:"Inverno Eterno", dmg:190, range:170, rate:28, color:"#01579b", size:0.56 }, { name:"Zero Absoluto", dmg:470, range:190, rate:26, color:"#0d47a1", size:0.60 }, { name:"Era Gelo", dmg:1150,range:210, rate:24, color:"#000051", size:0.64 }, { name:"Glaciação", dmg:2900,range:235, rate:22, color:"#00b8d4", size:0.68 }, { name:"Fim Tempos", dmg:7200,range:260, rate:20, color:"#00e5ff", size:0.72 } ] },
+  splash: { ico: "💣", name: "Bombardeiro", color: "#ff9800", tagline: "Explosão em área.", special: "splash", splash: 65, unlockAsc: 0, levels: [ { name:"Bombardeiro", dmg:22, range:110, rate:60, color:"#f57c00", size:0.42 }, { name:"Artilharia", dmg:60, range:125, rate:55, color:"#e65100", size:0.48 }, { name:"Cataclismo", dmg:150,range:145, rate:50, color:"#bf360c", size:0.55 }, { name:"Meteoro", dmg:370,range:165, rate:45, color:"#8d2f00", size:0.58 }, { name:"Apocalipse", dmg:900,range:185, rate:42, color:"#4a1500", size:0.62 }, { name:"Extinção", dmg:2200,range:205,rate:38, color:"#ff3d00", size:0.66 }, { name:"Big Bang", dmg:5400,range:230,rate:35, color:"#ff9100", size:0.70 }, { name:"Juízo Final", dmg:13500,range:255,rate:32,color:"#ffea00", size:0.74 } ] },
+  chain: { ico: "⚡", name: "Eletricista", color: "#ffd700", tagline: "Salta entre inimigos.", special: "chain", chain: 4, unlockAsc: 0, levels: [ { name:"Eletricista", dmg:20, range:130, rate:40, color:"#ffb300", size:0.40 }, { name:"Tempestade", dmg:52, range:150, rate:36, color:"#ff8f00", size:0.46 }, { name:"Fúria Deuses", dmg:140,range:175, rate:32, color:"#e65100", size:0.52 }, { name:"Trovão", dmg:340,range:195, rate:30, color:"#ff6f00", size:0.56 }, { name:"Relâmpago Eterno", dmg:850,range:215, rate:28, color:"#ffca28", size:0.60 }, { name:"Tempestade Cósmica",dmg:2100,range:240,rate:26,color:"#ffee58", size:0.64 }, { name:"Fúria Celestial", dmg:5200,range:265, rate:24, color:"#fff59d", size:0.68 }, { name:"Deus Trovão", dmg:12500,range:290,rate:22,color:"#ffff00", size:0.72 } ] },
+  poison: { ico: "☠️", name: "Alquimista", color: "#9ccc65", tagline: "Veneno contínuo.", special: "poison", poisonDmg: 6, unlockAsc: 0, levels: [ { name:"Alquimista", dmg:14, range:115, rate:34, color:"#7cb342", size:0.40 }, { name:"Envenenador", dmg:32, range:130, rate:32, color:"#689f38", size:0.46 }, { name:"Apocalipse", dmg:85, range:150, rate:28, color:"#33691e", size:0.52 }, { name:"Praga", dmg:210,range:170, rate:26, color:"#1b5e20", size:0.56 }, { name:"Peste Negra", dmg:530,range:190, rate:24, color:"#004d40", size:0.60 }, { name:"Toxina Final",dmg:1350,range:210,rate:22, color:"#66bb6a", size:0.64 }, { name:"Pandemia", dmg:3400,range:235,rate:20, color:"#00e676", size:0.68 }, { name:"Fim Vida", dmg:8200,range:260,rate:18, color:"#b2ff59", size:0.72 } ] },
+  fire: { ico: "🔥", name: "Piromante", color: "#ff5722", tagline: "Fogo em área. Queima.", special: "fire", unlockAsc: 5, levels: [ { name:"Piromante", dmg:24, range:120, rate:42, color:"#ff5722", size:0.42 }, { name:"Mago Fogo", dmg:58, range:135, rate:40, color:"#e64a19", size:0.48 }, { name:"Senhor Chamas", dmg:145,range:155,rate:36,color:"#bf360c", size:0.54 }, { name:"Inferno", dmg:360,range:175, rate:32, color:"#8d2f00", size:0.58 }, { name:"Fogueira Eterna",dmg:880,range:195,rate:28,color:"#ff3d00", size:0.62 }, { name:"Apocalipse Ígneo",dmg:2200,range:215,rate:26,color:"#ff6e40", size:0.66 }, { name:"Sol Vivo", dmg:5400,range:240, rate:24, color:"#ff9100", size:0.70 }, { name:"Estrela", dmg:13500,range:265,rate:22,color:"#ffea00", size:0.74 } ] },
+  necro: { ico: "💀", name: "Necromante", color: "#b39ddb", tagline: "Invoca esqueletos.", special: "necro", unlockAsc: 9, levels: [ { name:"Necromante", dmg:16, range:115, rate:48, color:"#7e57c2", size:0.42 }, { name:"Invocador", dmg:42, range:130, rate:44, color:"#5e35b1", size:0.48 }, { name:"Senhor Mortos", dmg:105,range:150,rate:40,color:"#4527a0", size:0.54 }, { name:"Ceifador", dmg:270,range:170, rate:36, color:"#311b92", size:0.58 }, { name:"Mestre Almas",dmg:680,range:190,rate:32,color:"#6a1b9a", size:0.62 }, { name:"Deus Morte", dmg:1750,range:215,rate:28,color:"#8e24aa", size:0.66 }, { name:"Ceifador Mundos",dmg:4300,range:240,rate:26,color:"#ab47bc", size:0.70 }, { name:"Necrosupremo", dmg:11500,range:265,rate:24,color:"#ce93d8", size:0.74 } ] }
 };
 
-const UPGRADE_COSTS = [0, 90, 160, 300, 580, 1150, 2300, 4600, 9200];
+const UPGRADE_COSTS = [0, 80, 150, 280, 550, 1100, 2200, 4400, 8800];
 const ASCENSION_BONUSES = [
-  { lvl:1, ico:"🏰", desc:"+1 slot de torre" }, { lvl:2, ico:"🪙", desc:"+15% ouro ganho" },
-  { lvl:3, ico:"🏰", desc:"+1 slot de torre" }, { lvl:4, ico:"⚔️", desc:"Arqueiro base +20% dano" },
-  { lvl:5, ico:"🔥", desc:"Novo ramo: Piromante" }, { lvl:6, ico:"🏰", desc:"+1 slot de torre" },
+  { lvl:1, ico:"🏰", desc:"+1 slot de torre máximo" }, { lvl:2, ico:"🪙", desc:"+15% ouro ganho" },
+  { lvl:3, ico:"🏰", desc:"+1 slot de torre máximo" }, { lvl:4, ico:"⚔️", desc:"Arqueiro base +20% dano" },
+  { lvl:5, ico:"🔥", desc:"Novo ramo: Piromante" }, { lvl:6, ico:"🏰", desc:"+1 slot de torre máximo" },
   { lvl:7, ico:"💀", desc:"Inimigos -5% HP" }, { lvl:8, ico:"⚡", desc:"+25% dano crítico" },
   { lvl:9, ico:"💀", desc:"Novo ramo: Necromante" }, { lvl:10,ico:"🎁", desc:"Todos os ramos desde Nv.1" }
 ];
 
 const ENEMY_TYPES = {
-  goblin: { name:"Goblin", hp:3,  gold:5,  color:"#7cb342", speed:0.88, radius:10 },
-  orc:    { name:"Orc",    hp:11, gold:9,  color:"#8d6e63", speed:0.72, radius:12 },
-  swift:  { name:"Veloz",  hp:6,  gold:7,  color:"#ffb74d", speed:1.35, radius:9  },
-  tank:   { name:"Tanque", hp:28, gold:15, color:"#b0bec5", speed:0.52, radius:14 },
-  boss:   { name:"Chefe",  hp:95, gold:40, color:"#e53935", speed:0.58, radius:18, lives:5 }
+  goblin: { name:"Goblin", hp:3,  gold:5,  color:"#7cb342", speed:0.85, radius:10 },
+  orc:    { name:"Orc",    hp:11, gold:9,  color:"#8d6e63", speed:0.68, radius:12 },
+  swift:  { name:"Veloz",  hp:6,  gold:7,  color:"#ffb74d", speed:1.30, radius:9  },
+  tank:   { name:"Tanque", hp:28, gold:15, color:"#b0bec5", speed:0.50, radius:14 },
+  boss:   { name:"Chefe",  hp:95, gold:40, color:"#e53935", speed:0.55, radius:18, lives:5 }
 };
 
 const TALENTS = [
@@ -328,7 +327,7 @@ function loadProgress() {
     persistent.ranking = Array.isArray(persistent.ranking) ? persistent.ranking.slice(0, MAX_RANKING) : [];
     persistent.playerName = typeof persistent.playerName === "string" ? persistent.playerName.slice(0,16) : "";
     if (persistent.savedState && typeof persistent.savedState !== "object") persistent.savedState = null;
-  } catch(e) { console.warn("load falhou", e); persistent = defaultPersistent(); }
+  } catch(e) { persistent = defaultPersistent(); }
 }
 
 let saveDirty = false, lastSaveTime = 0;
@@ -337,14 +336,20 @@ function saveProgress(force) {
   if (!force && now - lastSaveTime < 1000) { saveDirty = true; return; }
   lastSaveTime = now; saveDirty = false;
   try { localStorage.setItem(SAVE_KEY, JSON.stringify(persistent)); }
-  catch(e) { if (storageAvailable) { storageAvailable = false; try { showInfo("⚠️ Sem gravação"); } catch(_){} } }
+  catch(e) { storageAvailable = false; }
 }
 
 let gold = 0, lives = 15, maxLives = 15, wave = 1, world = 1, score = 0;
 let running = false, gameOverFlag = false, paused = false;
 let selectedTower = null;
 let towers = [], enemies = [], projectiles = [], particles = [], floats = [], skeletons = [];
-let spawnQueue = [], spawnTimer = 0, slots = [], PATH = [];
+let spawnQueue = [], spawnTimer = 0;
+let gridCols = 11, gridRows = 15, offX = 0, offY = 0;
+let grid = []; // Matriz [r][c] = { walkable, tower, x, y }
+let currentPath = []; // Array de {x, y} em pixéis para os inimigos seguirem
+let startCell = { r: 0, c: 5 };
+let endCell = { r: 14, c: 5 };
+
 let killsThisRun = 0, towersBuiltThisRun = 0;
 let speedMul = 1, hudDirty = true, pendingSaleId = null, waveTotalCount = 0, pendingBranchTower = null, pendingBuildSlot = null;
 
@@ -373,7 +378,12 @@ function rangeMul()     { return 1 + talentLvl("precision")*0.05; }
 function rateMul()      { return 1 - talentLvl("speed")*0.08; }
 function startGoldBonus(){ return talentLvl("heritage")*30 + (ascLevel() * 40); }
 function startLivesBonus(){ return talentLvl("vital")*2; }
-function maxTowers()    { let n = BASE_MAX_TOWERS; if (ascLevel()>=1) n += 1; if (ascLevel()>=3) n += 1; if (ascLevel()>=6) n += 1; if (ascLevel()>=11) n += Math.floor((ascLevel()-10)/2); return n; }
+function maxTowers()    { 
+  let baseLimit = 16;
+  let n = baseLimit + ascLevel()*2; 
+  if (ascLevel()>=1) n += 2; 
+  return n; 
+}
 function hpReduction()  { return ascLevel()>=7 ? 0.95 : 1.0; }
 function critMultiplier(){ return ascLevel()>=8 ? 1.25 : 1.0; }
 
@@ -390,7 +400,112 @@ function towerStats(t){
 }
 function towerUpgradeCost(t){ return t.level >= 10 ? Infinity : (UPGRADE_COSTS[t.level] || 100000); }
 function towerSellValue(t){ let total = BASE_TOWER.cost; for (let i=1; i<t.level; i++) total += UPGRADE_COSTS[i] || 0; return Math.floor(total * 0.75); }
-let COLS = 10, ROWS = 14, offX = 0, offY = 0;
+
+// --- MOTOR DE LABIRINTO & PATHFINDING (BFS) ---
+function initGrid(w, h) {
+  const marginX = 10, marginY = 10;
+  gridCols = Math.max(7, Math.floor((w - marginX * 2) / TILE));
+  gridRows = Math.max(10, Math.floor((h - marginY * 2) / TILE));
+  offX = Math.floor((w - gridCols * TILE) / 2);
+  offY = Math.floor((h - gridRows * TILE) / 2);
+
+  startCell = { r: 0, c: Math.floor(gridCols / 2) };
+  endCell = { r: gridRows - 1, c: Math.floor(gridCols / 2) };
+
+  const existingTowers = [...towers];
+  grid = [];
+  towers = [];
+
+  for (let r = 0; r < gridRows; r++) {
+    grid[r] = [];
+    for (let c = 0; c < gridCols; c++) {
+      grid[r][c] = {
+        r, c,
+        x: offX + c * TILE + TILE / 2,
+        y: offY + r * TILE + TILE / 2,
+        tower: null
+      };
+    }
+  }
+
+  // Restaurar torres anteriores se possível
+  existingTowers.forEach(t => {
+    if (t.r >= 0 && t.r < gridRows && t.c >= 0 && t.c < gridCols) {
+      if ((t.r !== startCell.r || t.c !== startCell.c) && (t.r !== endCell.r || t.c !== endCell.c)) {
+        grid[t.r][t.c].tower = t;
+        t.x = grid[t.r][t.c].x;
+        t.y = grid[t.r][t.c].y;
+        t.slot = grid[t.r][t.c];
+        towers.push(t);
+      }
+    }
+  });
+
+  recalculatePath();
+}
+
+function recalculatePath() {
+  const queue = [];
+  const visited = Array.from({ length: gridRows }, () => Array(gridCols).false || Array(gridCols).fill(false));
+  const parent = Array.from({ length: gridRows }, () => Array(gridCols).fill(null));
+
+  const startR = startCell.r, startC = startCell.c;
+  const endR = endCell.r, endC = endCell.c;
+
+  queue.push({ r: startR, c: startC });
+  visited[startR][startC] = true;
+
+  let found = false;
+  const dr = [-1, 1, 0, 0];
+  const dc = [0, 0, -1, 1];
+
+  while (queue.length > 0) {
+    const curr = queue.shift();
+    if (curr.r === endR && curr.c === endC) {
+      found = true;
+      break;
+    }
+
+    for (let i = 0; i < 4; i++) {
+      const nr = curr.r + dr[i];
+      const nc = curr.c + dc[i];
+
+      if (nr >= 0 && nr < gridRows && nc >= 0 && nc < gridCols) {
+        if (!visited[nr][nc]) {
+          // Célula é válida se não tiver torre (exceto se for o destino final)
+          const isDest = (nr === endR && nc === endC);
+          const hasTower = grid[nr][nc].tower !== null;
+          if (!hasTower || isDest) {
+            visited[nr][nc] = true;
+            parent[nr][nc] = curr;
+            queue.push({ r: nr, c: nc });
+          }
+        }
+      }
+    }
+  }
+
+  if (!found) {
+    currentPath = [];
+    return false;
+  }
+
+  // Reconstruir caminho em pixéis
+  let pathCells = [];
+  let curr = { r: endR, c: endC };
+  while (curr) {
+    pathCells.push(curr);
+    curr = parent[curr.r][curr.c];
+  }
+  pathCells.reverse();
+
+  currentPath = pathCells.map(cell => ({
+    x: grid[cell.r][cell.c].x,
+    y: grid[cell.r][cell.c].y
+  }));
+
+  return true;
+}
 
 function resizeCanvas(){
   const wrap = $("gamewrap");
@@ -403,137 +518,20 @@ function resizeCanvas(){
   cv.style.width = w + "px";
   cv.style.height = h + "px";
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  rebuildStrategicSlots(w, h);
+  initGrid(w, h);
 }
 
-function distToSegment(p, v, w){
-  const l2 = (w.x-v.x)**2 + (w.y-v.y)**2;
-  if (l2 === 0) return Math.hypot(p.x-v.x, p.y-v.y);
-  let t = ((p.x-v.x)*(w.x-v.x) + (p.y-v.y)*(w.y-v.y)) / l2;
-  t = Math.max(0, Math.min(1, t));
-  return Math.hypot(p.x - (v.x + t*(w.x-v.x)), p.y - (v.y + t*(w.y-v.y)));
-}
-
-function buildPath(offX, offY){
-  const c1 = Math.max(1, Math.floor(COLS * 0.15));
-  const c2 = COLS - 1 - Math.max(1, Math.floor(COLS * 0.15));
-  const r1 = Math.max(1, Math.floor(ROWS * 0.30));
-  const r2 = Math.max(r1 + 2, Math.floor(ROWS * 0.65));
-  const pts = [{ col:c1, row:0 }, { col:c1, row:r1 }, { col:c2, row:r1 }, { col:c2, row:r2 }, { col:c1, row:r2 }, { col:c1, row:ROWS-1 }];
-  return pts.map(p => ({ x: offX + p.col*TILE + TILE/2, y: offY + p.row*TILE + TILE/2 }));
-}
-
-function rebuildStrategicSlots(w,h){
-  const margin = 8;
-  const oldCols=COLS, oldRows=ROWS, oldOffX=offX, oldOffY=offY;
-  const previousTowers = towers.map(t => ({ tower:t, nx: oldCols>0 ? (t.x-oldOffX)/(oldCols*TILE) : 0.5, ny: oldRows>0 ? (t.y-oldOffY)/(oldRows*TILE) : 0.5, col:t.col, row:t.row }));
-
-  COLS = Math.max(7, Math.floor((w - margin*2)/TILE));
-  ROWS = Math.max(10, Math.floor((h - margin*2)/TILE));
-  offX = Math.floor((w - COLS*TILE)/2);
-  offY = Math.floor((h - ROWS*TILE)/2);
-
-  slots = []; towers = [];
-  for(let r=0;r<ROWS;r++){ 
-    for(let c=0;c<COLS;c++){ 
-      slots.push({ col:c, row:r, x: offX + c*TILE + TILE/2, y: offY + r*TILE + TILE/2, occupied:false, buildable:false }); 
-    } 
-  }
-
-  PATH = buildPath(offX, offY);
-
-  slots.forEach(s => {
-    let distToPath = Infinity;
-    for(let i=0;i<PATH.length-1;i++){ 
-      const d = distToSegment(s, PATH[i], PATH[i+1]); 
-      if (d < distToPath) distToPath = d; 
-    }
-    const isTopCorner = (s.row <= 1 && s.col >= COLS - 3); 
-    if (distToPath > TILE * 1.1 && !isTopCorner) {
-      s.buildable = true;
-    }
-  });
-
-  const availableSlots = slots.filter(s => s.buildable);
-  const chosenSlots = [];
-  const getPathDist = (slot) => {
-    let d = Infinity;
-    for(let i=0;i<PATH.length-1;i++){ d = Math.min(d, distToSegment(slot, PATH[i], PATH[i+1])); }
-    return d;
-  };
-
-  availableSlots.sort((a,b) => getPathDist(a) - getPathDist(b));
-  const zoneSize = ROWS / 3;
+// --- INTERAÇÃO E CONSTRUÇÃO ---
+function showBuildMenu(cell){
+  if (cell.tower !== null || (cell.r === startCell.r && cell.c === startCell.c) || (cell.r === endCell.r && cell.c === endCell.c)) return;
   
-  for (let z = 0; z < 3; z++) {
-    const startY = z * zoneSize;
-    const endY = (z + 1) * zoneSize;
-    let zoneSlots = availableSlots.filter(s => s.row >= startY && s.row < endY && !chosenSlots.includes(s));
-    const targetPerZone = Math.ceil(maxTowers() / 3);
-    let addedInZone = 0;
-
-    for (let i = 0; i < zoneSlots.length && addedInZone < targetPerZone && chosenSlots.length < maxTowers(); i++) {
-      const testSlot = zoneSlots[i];
-      let tooClose = false;
-      for (let j = 0; j < chosenSlots.length; j++) {
-        if (dist(testSlot, chosenSlots[j]) < TILE * 1.8) { tooClose = true; break; }
-      }
-      if (!tooClose) {
-        chosenSlots.push(testSlot);
-        addedInZone++;
-      }
-    }
-  }
-
-  if (chosenSlots.length < maxTowers()) {
-    for (let i = 0; i < availableSlots.length && chosenSlots.length < maxTowers(); i++) {
-      const testSlot = availableSlots[i];
-      if (chosenSlots.includes(testSlot)) continue;
-      let tooClose = false;
-      for (let j = 0; j < chosenSlots.length; j++) {
-        if (dist(testSlot, chosenSlots[j]) < TILE * 1.8) { tooClose = true; break; }
-      }
-      if (!tooClose) chosenSlots.push(testSlot);
-    }
-  }
-
-  slots.forEach(s => s.buildable = false);
-  chosenSlots.forEach(s => s.buildable = true);
-
-  previousTowers.forEach(item => {
-    const t = item.tower;
-    let slot = slots.find(s => s.buildable && !s.occupied && s.col === item.col && s.row === item.row);
-    if (!slot) {
-      const targetX = offX + Math.max(0, Math.min(1, item.nx)) * COLS * TILE;
-      const targetY = offY + Math.max(0, Math.min(1, item.ny)) * ROWS * TILE;
-      let best = Infinity;
-      slots.forEach(s => { 
-        if (!s.buildable || s.occupied) return; 
-        const d = (s.x - targetX) ** 2 + (s.y - targetY) ** 2; 
-        if (d < best) { best = d; slot = s; } 
-      });
-    }
-    if (slot) { 
-      slot.occupied = true; 
-      t.slot = slot; 
-      t.col = slot.col; 
-      t.row = slot.row; 
-      t.x = slot.x; 
-      t.y = slot.y; 
-      towers.push(t); 
-    }
-  });
-}
-
-function showBuildMenu(slot){
-  if (slot.occupied || !slot.buildable) return;
-  pendingBuildSlot = slot;
+  pendingBuildSlot = cell;
   paused = true; buildMenu.classList.add("show"); 
   buildList.innerHTML = "";
   
   const btn = document.createElement("button");
   btn.className = "build-item" + (gold < BASE_TOWER.cost ? " disabled" : "");
-  btn.innerHTML = '<div class="bico">🏹</div><div class="binfo"><div class="bnm">Arqueiro</div><div class="bdesc">Evolui para 7 ramos únicos</div></div><div class="bcost">' + BASE_TOWER.cost + '🪙</div>';
+  btn.innerHTML = '<div class="bico">🏹</div><div class="binfo"><div class="bnm">Arqueiro</div><div class="bdesc">Modifica o labirinto (7 ramos)</div></div><div class="bcost">' + BASE_TOWER.cost + '🪙</div>';
   
   let clickLocked = true;
   setTimeout(() => { clickLocked = false; }, 250);
@@ -562,13 +560,28 @@ function hideBuildMenu(){
 }
 buildClose.addEventListener("click", hideBuildMenu); buildCancel.addEventListener("click", hideBuildMenu);
 
-function buildTower(slot){
+function buildTower(cell){
   if (gold < BASE_TOWER.cost) { showInfo("🪙 Ouro insuficiente"); return; }
-  if (slot.occupied || !slot.buildable) return;
+  if (cell.tower !== null) return;
   if (towers.length >= maxTowers()) { showInfo("🚫 Limite de torres"); return; }
+
+  // Testar se bloquear a célula corta o caminho
+  cell.tower = { placeholder: true };
+  const canPass = recalculatePath();
+  cell.tower = null;
+
+  if (!canPass) {
+    showInfo("🚫 Caminho bloqueado!");
+    return;
+  }
+
   gold -= BASE_TOWER.cost;
-  const t = { type: "archer", level: 1, branch: null, col: slot.col, row: slot.row, x: slot.x, y: slot.y, slot, cooldown: 0, angle: 0 };
-  slot.occupied = true; towers.push(t); towersBuiltThisRun++; hudDirty = true; vibrate(15); burst(t.x, t.y, BASE_TOWER.levels[0].color, 8); 
+  const t = { type: "archer", level: 1, branch: null, r: cell.r, c: cell.c, x: cell.x, y: cell.y, slot: cell, cooldown: 0, angle: 0 };
+  cell.tower = t; 
+  towers.push(t); 
+  towersBuiltThisRun++; 
+  recalculatePath();
+  hudDirty = true; vibrate(15); burst(t.x, t.y, BASE_TOWER.levels[0].color, 8); 
   forceSave();
 }
 
@@ -608,7 +621,11 @@ function showBranchChoice(){
 branchCancel.addEventListener("click", () => { branchScreen.classList.remove("show"); pendingBranchTower = null; });
 
 function sellTower(t){
-  const val = towerSellValue(t); gold += val; if (t.slot) t.slot.occupied = false; towers = towers.filter(x => x !== t);
+  const val = towerSellValue(t); 
+  gold += val; 
+  if (t.slot) t.slot.tower = null; 
+  towers = towers.filter(x => x !== t);
+  recalculatePath();
   selectedTower = null; hidePopup(); hudDirty = true; updateStartBtn(); burst(t.x, t.y, "#ffd700", 10); floatText(t.x, t.y-16, "+" + val, "#ffd700"); 
   forceSave();
 }
@@ -634,8 +651,11 @@ function refreshPopup(){
   sellBtn.disabled = false; sellBtn.classList.remove("confirm"); sellBtn.innerHTML = 'Vender<small id="sellVal">🪙 ' + sv + '</small>'; pendingSaleId = null;
 }
 
+// --- GESTÃO DE INIMIGOS E CAMINHO ---
 function spawnEnemy(type, waveNum, worldNum){
   const base = ENEMY_TYPES[type]; if (!base) return;
+  if (currentPath.length === 0) return;
+
   const worldFactor = 1 + (worldNum - 1) * 0.4;
   let baseScale = 0.14 + Math.floor((waveNum - 1) / 5) * 0.05;
   if (waveNum > 25) baseScale *= 1.25;
@@ -651,16 +671,24 @@ function spawnEnemy(type, waveNum, worldNum){
   if (waveNum >= 30 && type !== "boss" && Math.random() < 0.20) shield = Math.ceil(hp * 0.3);
   if (waveNum >= 35 && type !== "boss" && Math.random() < 0.15) regen = Math.ceil(hp * 0.015);
 
-  enemies.push({ type, hp, maxHp: hp, gold: Math.ceil(base.gold * (1 + (worldNum-1)*0.15)), speed, radius: base.radius, color: base.color, x: PATH[0].x, y: PATH[0].y, waypoint: 1, slow: 0, poison: 0, poisonDmg: 0, alive: true, hitFlash: 0, shield, shieldMax: shield, regen });
+  enemies.push({ 
+    type, hp, maxHp: hp, 
+    gold: Math.ceil(base.gold * (1 + (worldNum-1)*0.15)), 
+    speed, radius: base.radius, color: base.color, 
+    x: currentPath[0].x, y: currentPath[0].y, 
+    pathIndex: 0, 
+    slow: 0, poison: 0, poisonDmg: 0, alive: true, hitFlash: 0, shield, shieldMax: shield, regen 
+  });
 }
 
 function startWave(){
   if (running || paused || gameOverFlag) return;
+  if (currentPath.length === 0) { showInfo("⚠️ Labirinto bloqueado!"); return; }
+  
   forceSave();
   running = true; paused = false; spawnQueue = []; spawnTimer = 0;
   const isBoss = wave % 5 === 0;
   
-  // Equilíbrio do número de inimigos e variedade por vaga
   const waveTierMult = 1 + Math.floor(wave / 8) * 0.12;
   const count = (isBoss ? (6 + Math.floor(wave * 0.5 * waveTierMult)) : (6 + Math.floor(wave * 0.75 * waveTierMult))) + ascLevel();
   
@@ -676,7 +704,6 @@ function startWave(){
   if (isBoss) spawnQueue.push({ type: "boss", delay: 25 });
   waveTotalCount = spawnQueue.length; startBtn.disabled = true; updateStartBtn();
   if (wave % 5 === 0) showInfo("👑 BOSS · Vaga " + wave);
-  else if (wave >= 30) showInfo("🛡️ Inimigos Resistentes · Vaga " + wave);
   else showInfo("⚔️ Vaga " + wave);
   forceSave();
 }
@@ -744,16 +771,30 @@ function update(){
     wave++; hudDirty = true; vibrate(25); startBtn.disabled = false; updateStartBtn(); forceSave(); return;
   }
 
+  // Atualizar movimento dos inimigos ao longo do array currentPath
   for (let i = enemies.length - 1; i >= 0; i--) {
     const e = enemies[i]; if (!e.alive) continue;
     if (e.hitFlash > 0) e.hitFlash--;
     if (e.poison > 0) { e.poison--; e.hp -= e.poisonDmg; if (e.hp <= 0) { killEnemy(e); continue; } }
     if (e.regen > 0 && e.hp < e.maxHp) e.hp = Math.min(e.maxHp, e.hp + e.regen);
+    
     let sp = e.speed; if (e.slow > 0) { e.slow--; sp *= 0.5; }
-    if (e.waypoint < PATH.length) {
-      const wp = PATH[e.waypoint], dx = wp.x - e.x, dy = wp.y - e.y, d = Math.hypot(dx, dy);
-      if (d < 4) e.waypoint++; else { e.x += (dx/d)*sp; e.y += (dy/d)*sp; }
-    } else { damageBase(e); if (gameOverFlag) return; }
+    
+    if (e.pathIndex < currentPath.length - 1) {
+      const targetPt = currentPath[e.pathIndex + 1];
+      const dx = targetPt.x - e.x, dy = targetPt.y - e.y, d = Math.hypot(dx, dy);
+      if (d <= sp) {
+        e.x = targetPt.x;
+        e.y = targetPt.y;
+        e.pathIndex++;
+      } else {
+        e.x += (dx / d) * sp;
+        e.y += (dy / d) * sp;
+      }
+    } else {
+      damageBase(e); 
+      if (gameOverFlag) return;
+    }
   }
 
   skeletons = skeletons.filter(s => {
@@ -813,21 +854,41 @@ function render(){
   const w = cv.width / (window.devicePixelRatio || 1); const h = cv.height / (window.devicePixelRatio || 1);
   ctx.clearRect(0, 0, w, h); const theme = WORLDS[(world - 1) % WORLDS.length];
   ctx.fillStyle = theme.bg; ctx.fillRect(0, 0, w, h);
-  ctx.strokeStyle = theme.path; ctx.lineWidth = TILE * 0.9; ctx.lineCap = "round"; ctx.lineJoin = "round";
-  ctx.beginPath(); PATH.forEach((p, i) => { i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y); }); ctx.stroke();
-  ctx.strokeStyle = theme.pathDash; ctx.lineWidth = 4; ctx.setLineDash([12, 16]);
-  ctx.beginPath(); PATH.forEach((p, i) => { i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y); }); ctx.stroke(); ctx.setLineDash([]);
-  
-  slots.forEach(s => {
-    if (!s.buildable || s.occupied) return;
-    ctx.beginPath(); ctx.arc(s.x, s.y, TILE*0.35, 0, Math.PI*2); ctx.fillStyle = "rgba(78,205,196,0.08)"; ctx.fill();
-    ctx.strokeStyle = "rgba(78,205,196,0.5)"; ctx.lineWidth = 2; ctx.setLineDash([4, 4]); ctx.stroke(); ctx.setLineDash([]);
-    ctx.fillStyle = "rgba(78,205,196,0.7)"; ctx.font = "bold 14px sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText("+", s.x, s.y);
-  });
 
-  const last = PATH[PATH.length-1];
-  ctx.font = "32px sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText("🏰", last.x, last.y - TILE*0.6);
-  
+  // Desenhar grelha subtil e indicadores de Entrada/Saída
+  for(let r=0; r<gridRows; r++){
+    for(let c=0; c<gridCols; c++){
+      const cell = grid[r][c];
+      ctx.strokeStyle = "rgba(255,255,255,0.02)";
+      ctx.lineWidth = 1;
+      ctx.strokeRect(cell.x - TILE/2, cell.y - TILE/2, TILE, TILE);
+
+      if (r === startCell.r && c === startCell.c) {
+        ctx.fillStyle = "rgba(100,255,218,0.15)";
+        ctx.fillRect(cell.x - TILE/2, cell.y - TILE/2, TILE, TILE);
+        ctx.fillStyle = "#64ffda"; ctx.font = "10px sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+        ctx.fillText("IN", cell.x, cell.y);
+      } else if (r === endCell.r && c === endCell.c) {
+        ctx.fillStyle = "rgba(255,82,82,0.15)";
+        ctx.fillRect(cell.x - TILE/2, cell.y - TILE/2, TILE, TILE);
+        ctx.fillStyle = "#ff5252"; ctx.font = "10px sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+        ctx.fillText("🏰", cell.x, cell.y);
+      } else if (cell.tower === null) {
+        ctx.fillStyle = "rgba(78,205,196,0.04)";
+        ctx.fillRect(cell.x - TILE/2 + 2, cell.y - TILE/2 + 2, TILE - 4, TILE - 4);
+      }
+    }
+  }
+
+  // Desenhar o caminho dinâmico dos monstros
+  if (currentPath.length > 1) {
+    ctx.strokeStyle = theme.path; ctx.lineWidth = TILE * 0.55; ctx.lineCap = "round"; ctx.lineJoin = "round";
+    ctx.beginPath(); currentPath.forEach((p, i) => { i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y); }); ctx.stroke();
+    ctx.strokeStyle = theme.pathDash; ctx.lineWidth = 3; ctx.setLineDash([8, 12]);
+    ctx.beginPath(); currentPath.forEach((p, i) => { i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y); }); ctx.stroke(); ctx.setLineDash([]);
+  }
+
+  // Alcance da torre selecionada
   if (selectedTower && selectedTower.slot && towers.includes(selectedTower)) {
     const st = towerStats(selectedTower); 
     ctx.beginPath(); ctx.arc(selectedTower.x, selectedTower.y, st.range, 0, Math.PI*2);
@@ -876,16 +937,28 @@ function updateStartBtn(){
   startBtnTxt.textContent=running?"⏳ A jogar":boss?"CHEFE "+wave:"VAGA "+wave;
   startBtnSub.textContent=running?"":boss?"👑 boss":"iniciar";
   startBtn.classList.toggle("boss",!running && boss);
-  startBtn.disabled=running||gameOverFlag;
+  startBtn.disabled=running||gameOverFlag || currentPath.length === 0;
 }
+
 function calcAscendPoints(){ return Math.max(1, Math.floor(wave / 5) + towers.filter(t => t.level >= 5).length * 2 + Math.floor(score / 5000)); }
 function canvasCoords(evt){ const r = cv.getBoundingClientRect(); const pt = evt.touches ? evt.touches[0] : evt; return { x: pt.clientX - r.left, y: pt.clientY - r.top }; }
 
 cv.addEventListener("pointerdown", evt => {
   evt.preventDefault(); if (paused || gameOverFlag) return; const p = canvasCoords(evt);
-  for (let i = 0; i < towers.length; i++) { if (dist(p, towers[i]) < TILE*0.5) { showPopup(towers[i]); return; } }
-  const slot = slots.find(s => s.buildable && !s.occupied && dist(p, s) < TILE/2);
-  if (slot) { showBuildMenu(slot); return; }
+  
+  // Detetar clique em torre existente
+  for (let i = 0; i < towers.length; i++) { if (dist(p, towers[i]) < TILE*0.45) { showPopup(towers[i]); return; } }
+  
+  // Detetar clique em célula vazia da grelha
+  for (let r = 0; r < gridRows; r++) {
+    for (let c = 0; c < gridCols; c++) {
+      const cell = grid[r][c];
+      if (Math.abs(p.x - cell.x) < TILE/2 && Math.abs(p.y - cell.y) < TILE/2) {
+        showBuildMenu(cell);
+        return;
+      }
+    }
+  }
   hidePopup();
 });
 
@@ -1015,7 +1088,16 @@ function startNewGame(fromAscension){
   overlay.classList.remove("show"); branchScreen.classList.remove("show"); rankingScreen.classList.remove("show"); ascendScreen.classList.remove("show"); buildMenu.classList.remove("show"); popup.classList.remove("show");
   gameOverFlag = false; paused = false; pauseBadge.classList.remove("show"); persistent.savedState = null;
   gold = 150 + startGoldBonus(); maxLives = 15 + startLivesBonus(); lives = maxLives; wave = 1; world = 1; score = 0; running = false;
-  selectedTower = null; pendingBranchTower = null; pendingBuildSlot = null; enemies = []; projectiles = []; particles = []; floats = []; skeletons = []; spawnQueue = []; spawnTimer = 0;  killsThisRun = 0; towersBuiltThisRun = 0; speedMul = 1; slots.forEach(s => { s.occupied = false; }); towers = []; startBtn.classList.remove("boss"); hudDirty = true;
+  selectedTower = null; pendingBranchTower = null; pendingBuildSlot = null; enemies = []; projectiles = []; particles = []; floats = []; skeletons = []; spawnQueue = []; spawnTimer = 0;  killsThisRun = 0; towersBuiltThisRun = 0; speedMul = 1; 
+  
+  for(let r=0; r<gridRows; r++){
+    for(let c=0; c<gridCols; c++){
+      grid[r][c].tower = null;
+    }
+  }
+  towers = []; 
+  recalculatePath();
+  startBtn.classList.remove("boss"); hudDirty = true;
   setTimeout(() => { resizeCanvas(); updateHUD(); updateStartBtn(); hidePopup(); hideBuildMenu(); }, 50); saveProgress(true);
 }
 
@@ -1035,7 +1117,7 @@ function forceSave(){
   if(!running){
     persistent.savedState={
       wave,world,gold,lives,score,
-      towers:towers.map(t=>({type:t.type,level:t.level,branch:t.branch,col:t.col,row:t.row}))
+      towers:towers.map(t=>({type:t.type,level:t.level,branch:t.branch,r:t.r,c:t.c}))
     };
   }
   saveProgress(true);
@@ -1060,12 +1142,16 @@ function initGame(){
     setTimeout(() => { 
       if (Array.isArray(s.towers)) { 
         s.towers.forEach(st => { 
-          const slot = slots.find(x => x.col === st.col && x.row === st.row && x.buildable && !x.occupied); 
-          if (slot && !slot.occupied) { 
-            slot.occupied = true; 
-            towers.push({ type: "archer", level: st.level || 1, branch: st.branch || null, col: st.col, row: st.row, x: slot.x, y: slot.y, slot, cooldown: 0, angle: 0 }); 
-          } 
+          if (st.r >= 0 && st.r < gridRows && st.c >= 0 && st.c < gridCols) {
+            const cell = grid[st.r][st.c];
+            if (cell.tower === null) {
+              const t = { type: "archer", level: st.level || 1, branch: st.branch || null, r: st.r, c: st.c, x: cell.x, y: cell.y, slot: cell, cooldown: 0, angle: 0 };
+              cell.tower = t;
+              towers.push(t);
+            }
+          }
         });
+        recalculatePath();
       }
       updateStartBtn();
     }, 50);
@@ -1073,6 +1159,7 @@ function initGame(){
     gold = 150 + startGoldBonus(); maxLives = 15 + startLivesBonus(); lives = maxLives; wave = 1; world = 1; score = 0; running = false;
     gameOverFlag = false; paused = false; enemies = []; projectiles = []; particles = []; floats = []; skeletons = []; spawnQueue = []; spawnTimer = 0;
     killsThisRun = 0; towersBuiltThisRun = 0; speedMul = 1; selectedTower = null; pendingBranchTower = null; pendingBuildSlot = null; towers = [];
+    recalculatePath();
   }
   
   setTimeout(resizeCanvas, 50);
