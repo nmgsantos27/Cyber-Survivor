@@ -5,6 +5,15 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#03050c">
 <title>Grid Runner: Cyber Survivor</title>
+
+<!-- Configurações PWA e Atalho no Ecrã Principal -->
+<link rel="manifest" href="./manifest.json">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="GridRunner">
+<link rel="apple-touch-icon" href="./icon.png">
+
 <style>
   * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
   html, body { width:100%; height:100%; overflow:hidden; background:#03050c; color:#00f0ff; font-family:"Rajdhani",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; touch-action:none; user-select:none; -webkit-user-select:none; }
@@ -75,7 +84,7 @@
 
 <script>
 "use strict";
-const SAVE_KEY = "gridRunnerBestScoreV6";
+const SAVE_KEY = "gridRunnerBestScoreV7";
 let bestScore = 0;
 try { const saved = localStorage.getItem(SAVE_KEY); if (saved) bestScore = parseInt(saved, 10) || 0; } catch(_) {}
 
@@ -226,7 +235,7 @@ function triggerLevelUp(){
 }
 
 let spawnTimer = 0;
-let heartSpawnTimer = 0; // Temporizador para gerar corações na arena regularmente
+let heartSpawnTimer = 0;
 
 function update(){
   if (!running) return;
@@ -257,7 +266,6 @@ function update(){
     spawnEnemy();
   }
 
-  // Criar corações na arena de forma contínua e espaçada (a cada ~8 segundos de jogo ativo)
   heartSpawnTimer++;
   if (heartSpawnTimer >= 500) {
     heartSpawnTimer = 0;
