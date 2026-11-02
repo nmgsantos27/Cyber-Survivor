@@ -37,6 +37,9 @@
   .upgrade-opt:active { background:#142450; transform:scale(0.98); }
   .upgrade-opt .u-title { font-size:15px; font-weight:900; color:#ffb703; }
   .upgrade-opt .u-desc { font-size:11px; color:#7a9cb8; font-weight:600; margin-top:3px; }
+
+  #infoAlert { position:absolute; top:15%; left:50%; transform:translateX(-50%); background:rgba(5,10,25,0.95); border:1px solid #ff0055; color:#ff0055; padding:8px 16px; border-radius:8px; font-size:13px; font-weight:800; pointer-events:none; opacity:0; transition:opacity 0.3s; z-index:20; box-shadow:0 0 15px rgba(255,0,85,0.4); text-align:center; }
+  #infoAlert.show { opacity:1; }
 </style>
 </head>
 <body>
@@ -50,20 +53,21 @@
   </div>
   <div id="gamewrap">
     <canvas id="cv"></canvas>
+    <div id="infoAlert"></div>
   </div>
 
   <div id="screenOverlay">
     <div class="menu-card">
       <div class="title">GRID RUNNER</div>
-      <div class="subtitle">Usa o joystick virtual no ecrã para manobrar o núcleo. Os disparos e a recolha de dados são automáticos.</div>
+      <div class="subtitle" id="menuSub">Usa o joystick virtual no ecrã para manobrar o núcleo. Apanha corações na arena para recuperar vida!</div>
       <button class="btn" id="startBtn">INICIALIZAR SISTEMA</button>
     </div>
   </div>
 
   <div id="levelUpModal">
     <div class="menu-card" style="text-align:center;">
-      <div class="title" style="color:#ffb703;">⚡ UPGRADE DISPONÍVEL</div>
-      <div class="subtitle">Escolhe um módulo de melhoria:</div>
+      <div class="title" style="color:#ffb703;" id="modalTitle">⚡ UPGRADE DE SISTEMA</div>
+      <div class="subtitle" id="modalSub">Escolhe um módulo de melhoria:</div>
       <div id="upgradeList" style="margin-top:10px;"></div>
     </div>
   </div>
@@ -71,7 +75,7 @@
 
 <script>
 "use strict";
-const SAVE_KEY = "gridRunnerBestScoreV1";
+const SAVE_KEY = "gridRunnerBestScoreV4";
 let bestScore = 0;
 try { const saved = localStorage.getItem(SAVE_KEY); if (saved) bestScore = parseInt(saved, 10) || 0; } catch(_) {}
 
@@ -79,14 +83,25 @@ const cv = document.getElementById("cv"), ctx = cv.getContext("2d");
 const scoreLbl = document.getElementById("scoreLbl"), bestLbl = document.getElementById("bestLbl"), levelLbl = document.getElementById("levelLbl"), lifeLbl = document.getElementById("lifeLbl");
 const xpBar = document.getElementById("xpBar"), screenOverlay = document.getElementById("screenOverlay"), startBtn = document.getElementById("startBtn");
 const levelUpModal = document.getElementById("levelUpModal"), upgradeList = document.getElementById("upgradeList");
+const menuSub = document.getElementById("menuSub"), modalTitle = document.getElementById("modalTitle"), modalSub = document.getElementById("modalSub");
+const infoAlert = document.getElementById("infoAlert");
 
 bestLbl.textContent = bestScore;
 
 let running = false, score = 0, level = 1, xp = 0, maxXp = 30, lives = 3;
+let pendingUpgrades = 0;
 let player = { x: 0, y: 0, radius: 14, speed: 3.8, fireRate: 35, fireTimer: 0, damage: 1, bulletCount: 1, range: 170 };
-let enemies = [], gems = [], bullets = [];
+let enemies = [], gems = [], hearts = [], bullets = [];
 let joystick = { active: false, id: null, startX: 0, startY: 0, curX: 0, curY: 0, dx: 0, dy: 0 };
 let keys = {};
+
+let alertTimer = 0;
+function showAlert(msg) {
+  infoAlert.textContent = msg;
+  infoAlert.classList.add("show");
+  clearTimeout(alertTimer);
+  alertTimer = setTimeout(() => infoAlert.classList.remove("show"), 1800);
+}
 
 function resizeCanvas(){
   const wrap = document.getElementById("gamewrap");
@@ -103,11 +118,15 @@ function resizeCanvas(){
 window.addEventListener("resize", resizeCanvas);
 
 function startGame(){
+  if (pendingUpgrades > 0) {
+    showPendingUpgrades();
+    return;
+  }
   const w = cv.clientWidth, h = cv.clientHeight;
   player.x = w / 2; player.y = h / 2;
-  score = 0; level = 1; xp = 0; maxXp = 30; lives = 3;
+  score = 0; level = 1; xp = 0; maxXp = 30; lives = 3; pendingUpgrades = 0;
   player.speed = 3.8; player.fireRate = 35; player.damage = 1; player.bulletCount = 1; player.range = 170;
-  enemies = []; gems = []; bullets = [];
+  enemies = []; gems = []; hearts = []; bullets = [];
   screenOverlay.classList.add("hidden");
   running = true;
   updateHUD();
@@ -118,7 +137,6 @@ startBtn.addEventListener("click", startGame);
 window.addEventListener("keydown", e => { keys[e.key.toLowerCase()] = true; });
 window.addEventListener("keyup", e => { keys[e.key.toLowerCase()] = false; });
 
-// Controlo de Joystick Virtual Dinâmico no Telemóvel
 cv.addEventListener("pointerdown", e => {
   const r = cv.getBoundingClientRect();
   if (!joystick.active) {
@@ -165,8 +183,8 @@ function updateHUD(){
   bestLbl.textContent = bestScore;
   levelLbl.textContent = "Nv. " + level;
   xpBar.style.width = Math.min(100, (xp / maxXp) * 100) + "%";
-  let hearts = ""; for(let i=0; i<lives; i++) hearts += "❤️";
-  lifeLbl.textContent = hearts;
+  let hStr = ""; for(let i=0; i<lives; i++) hStr += "❤️";
+  lifeLbl.textContent = hStr;
 }
 
 function spawnEnemy(){
@@ -187,10 +205,11 @@ function spawnEnemy(){
   enemies.push({ x, y, hp, maxHp: hp, speed: speed * (1 + level * 0.04), color, radius, type });
 }
 
-function triggerLevelUp(){
-  running = false;
+function showPendingUpgrades(){
   levelUpModal.classList.add("show");
   upgradeList.innerHTML = "";
+  modalTitle.textContent = `⚡ UPGRADES PENDENTES (${pendingUpgrades})`;
+  modalSub.textContent = "Escolhe um módulo de melhoria:";
 
   const options = [
     { title: "⚡ Overclock de Cadência", desc: "Aumenta a velocidade de disparo em 20%.", apply: () => { player.fireRate = Math.max(10, player.fireRate * 0.8); } },
@@ -206,8 +225,19 @@ function triggerLevelUp(){
     div.innerHTML = `<div class="u-title">${opt.title}</div><div class="u-desc">${opt.desc}</div>`;
     div.addEventListener("click", () => {
       opt.apply();
-      levelUpModal.classList.remove("show");
-      running = true;
+      pendingUpgrades--;
+      if (pendingUpgrades > 0) {
+        showPendingUpgrades();
+      } else {
+        levelUpModal.classList.remove("show");
+        const w = cv.clientWidth, h = cv.clientHeight;
+        player.x = w / 2; player.y = h / 2;
+        score = 0; level = 1; xp = 0; maxXp = 30; lives = 3;
+        enemies = []; gems = []; hearts = []; bullets = [];
+        screenOverlay.classList.add("hidden");
+        running = true;
+        updateHUD();
+      }
     });
     upgradeList.appendChild(div);
   });
@@ -284,12 +314,15 @@ function update(){
           bestScore = score;
           try { localStorage.setItem(SAVE_KEY, bestScore.toString()); } catch(_) {}
         }
-        screenOverlay.classList.add("hidden");
-        // Mostrar ecrã de Game Over com recorde atualizado
         screenOverlay.classList.remove("hidden");
         document.querySelector(".title").textContent = "FALHA DE SISTEMA";
         document.querySelector(".subtitle").innerHTML = `Pontuação: <b>${score}</b> | Recorde: <b>${bestScore}</b><br>Nível atingido: ${level}`;
-        startBtn.textContent = "TENTAR DE NOVO";
+        
+        if (pendingUpgrades > 0) {
+          startBtn.textContent = `GASTAR UPGRADES (${pendingUpgrades})`;
+        } else {
+          startBtn.textContent = "TENTAR DE NOVO";
+        }
       }
     }
   });
@@ -321,13 +354,35 @@ function update(){
           xp -= maxXp;
           level++;
           maxXp = Math.floor(maxXp * 1.35);
-          triggerLevelUp();
+          pendingUpgrades++;
+
+          // Chance de surgir um coração cibernético na arena a cada subida de nível
+          if (Math.random() < 0.6) {
+            hearts.push({
+              x: Math.random() * (w - 60) + 30,
+              y: Math.random() * (h - 60) + 30,
+              lifeTime: 450 // Desaparece passado algum tempo se não for apanhado
+            });
+          }
         }
         updateHUD();
       }
     }
   });
   gems = gems.filter(g => !g.collected);
+
+  // Gestão e recolha de corações na arena
+  hearts.forEach(hItem => {
+    hItem.lifeTime--;
+    const d = Math.hypot(player.x - hItem.x, player.y - hItem.y);
+    if (d < player.radius + 14) {
+      lives++;
+      hItem.collected = true;
+      showAlert("❤️ VIDA APANHADA NA ARENA!");
+      updateHUD();
+    }
+  });
+  hearts = hearts.filter(hItem => !hItem.collected && hItem.lifeTime > 0);
 }
 
 function render(){
@@ -344,6 +399,15 @@ function render(){
     ctx.fillStyle = "#ffb703";
     ctx.shadowColor = "#ffb703"; ctx.shadowBlur = 6;
     ctx.beginPath(); ctx.arc(g.x, g.y, 4, 0, Math.PI * 2); ctx.fill();
+    ctx.shadowBlur = 0;
+  });
+
+  // Desenhar Corações na Arena
+  hearts.forEach(hItem => {
+    ctx.fillStyle = "#ff0055";
+    ctx.shadowColor = "#ff0055"; ctx.shadowBlur = 10;
+    ctx.beginPath(); ctx.arc(hItem.x, hItem.y, 8, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = "#fff"; ctx.lineWidth = 1.5; ctx.stroke();
     ctx.shadowBlur = 0;
   });
 
@@ -367,11 +431,9 @@ function render(){
   ctx.strokeStyle = "#fff"; ctx.lineWidth = 2; ctx.stroke();
   ctx.shadowBlur = 0;
 
-  // Desenhar o Joystick Virtual no ecrã se estiver a ser tocado
   if (joystick.active) {
     ctx.strokeStyle = "rgba(0,240,255,0.25)"; ctx.lineWidth = 2;
     ctx.beginPath(); ctx.arc(joystick.startX, joystick.startY, 45, 0, Math.PI * 2); ctx.stroke();
-    
     ctx.fillStyle = "rgba(0,240,255,0.4)";
     ctx.beginPath(); ctx.arc(joystick.curX, joystick.curY, 20, 0, Math.PI * 2); ctx.fill();
   }
