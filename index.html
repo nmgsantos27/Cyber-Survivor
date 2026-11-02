@@ -102,7 +102,7 @@
   .ov-stats { display:grid; grid-template-columns:1fr 1fr; gap:10px; width:100%; max-width:300px; margin:20px auto; }
   .ov-stat { background:#141c2e; padding:12px; border-radius:12px; }
   .ov-stat .v { font-size:20px; font-weight:900; color:#4ecdc4; }
-  .ov-stat .l { font-size:10px; color:#8fa3bd; font-weight:700; text-transform:uppercase; }
+  .ov-stat .l { font-size:10px; color:#5a6b82; font-weight:700; text-transform:uppercase; }
   .ov-input { width:100%; max-width:300px; padding:14px; border-radius:12px; background:#141c2e; border:1px solid #3a506b; color:#fff; font-size:16px; font-weight:700; text-align:center; margin-bottom:10px; outline:none; }
   .ov-btn { width:100%; max-width:300px; padding:16px; border-radius:12px; background:#4ecdc4; border:none; color:#0a1020; font-weight:900; font-size:16px; cursor:pointer; margin-bottom:8px; }
   .ov-ranking { width:100%; max-width:300px; max-height:140px; overflow-y:auto; margin:16px auto; }
@@ -245,7 +245,7 @@
 </div>
 <script>
 "use strict";
-const SAVE_KEY = "fortalezaEternaV5"; 
+const SAVE_KEY = "fortalezaEternaV6"; 
 const TILE = 36;
 const BASE_MAX_TOWERS = 10;
 const MAX_RANKING = 20;
@@ -433,17 +433,13 @@ function rebuildStrategicSlots(w,h){
 
   PATH = buildPath(offX, offY);
 
-  // 1. Filtrar slots inválidos (perto do caminho ou nos cantos superiores)
   slots.forEach(s => {
     let distToPath = Infinity;
     for(let i=0;i<PATH.length-1;i++){ 
       const d = distToSegment(s, PATH[i], PATH[i+1]); 
       if (d < distToPath) distToPath = d; 
     }
-    
-    // Impede slots na linha do topo (onde ficam os botões do menu e da árvore)
     const isTopCorner = (s.row <= 1 && s.col >= COLS - 3); 
-    
     if (distToPath > TILE * 1.1 && !isTopCorner) {
       s.buildable = true;
     }
@@ -451,40 +447,28 @@ function rebuildStrategicSlots(w,h){
 
   const availableSlots = slots.filter(s => s.buildable);
   const chosenSlots = [];
-  
-  // Função auxiliar para calcular a distância de um slot ao caminho
   const getPathDist = (slot) => {
     let d = Infinity;
     for(let i=0;i<PATH.length-1;i++){ d = Math.min(d, distToSegment(slot, PATH[i], PATH[i+1])); }
     return d;
   };
 
-  // Ordenar todos os slots disponíveis pela proximidade ao caminho
   availableSlots.sort((a,b) => getPathDist(a) - getPathDist(b));
-
-  // 2. Dividir o mapa em 3 zonas (Início, Meio, Fim) para garantir distribuição
   const zoneSize = ROWS / 3;
   
   for (let z = 0; z < 3; z++) {
     const startY = z * zoneSize;
     const endY = (z + 1) * zoneSize;
-    
-    // Slots que estão nesta zona
     let zoneSlots = availableSlots.filter(s => s.row >= startY && s.row < endY && !chosenSlots.includes(s));
-    
-    // Quantos slots queremos por zona (aproximadamente um terço do total)
     const targetPerZone = Math.ceil(maxTowers() / 3);
     let addedInZone = 0;
 
     for (let i = 0; i < zoneSlots.length && addedInZone < targetPerZone && chosenSlots.length < maxTowers(); i++) {
       const testSlot = zoneSlots[i];
       let tooClose = false;
-      
-      // Garante espaçamento de 1.8 blocos entre slots
       for (let j = 0; j < chosenSlots.length; j++) {
         if (dist(testSlot, chosenSlots[j]) < TILE * 1.8) { tooClose = true; break; }
       }
-      
       if (!tooClose) {
         chosenSlots.push(testSlot);
         addedInZone++;
@@ -492,12 +476,10 @@ function rebuildStrategicSlots(w,h){
     }
   }
 
-  // Fallback: se não preencheu o limite, pega os melhores restantes (respeitando o espaço)
   if (chosenSlots.length < maxTowers()) {
     for (let i = 0; i < availableSlots.length && chosenSlots.length < maxTowers(); i++) {
       const testSlot = availableSlots[i];
       if (chosenSlots.includes(testSlot)) continue;
-      
       let tooClose = false;
       for (let j = 0; j < chosenSlots.length; j++) {
         if (dist(testSlot, chosenSlots[j]) < TILE * 1.8) { tooClose = true; break; }
@@ -509,7 +491,6 @@ function rebuildStrategicSlots(w,h){
   slots.forEach(s => s.buildable = false);
   chosenSlots.forEach(s => s.buildable = true);
 
-  // 3. Restaurar torres
   previousTowers.forEach(item => {
     const t = item.tower;
     let slot = slots.find(s => s.buildable && !s.occupied && s.col === item.col && s.row === item.row);
@@ -545,13 +526,12 @@ function showBuildMenu(slot){
   btn.className = "build-item" + (gold < BASE_TOWER.cost ? " disabled" : "");
   btn.innerHTML = '<div class="bico">🏹</div><div class="binfo"><div class="bnm">Arqueiro</div><div class="bdesc">Evolui para 7 ramos únicos</div></div><div class="bcost">' + BASE_TOWER.cost + '🪙</div>';
   
-  // PROTEÇÃO CONTRA CLIQUE FANTASMA (sem timeout que bloqueia o jogo)
   let clickLocked = true;
   setTimeout(() => { clickLocked = false; }, 250);
 
   if (gold >= BASE_TOWER.cost && towers.length < maxTowers()) { 
-    btn.addEventListener("click", (e) => { 
-      if (clickLocked) return; // Ignora se o clique for imediato
+    btn.addEventListener("click", () => { 
+      if (clickLocked) return; 
       buildTower(pendingBuildSlot); 
       hideBuildMenu(); 
     }); 
@@ -577,7 +557,7 @@ function buildTower(slot){
   gold -= BASE_TOWER.cost;
   const t = { type: "archer", level: 1, branch: null, col: slot.col, row: slot.row, x: slot.x, y: slot.y, slot, cooldown: 0, angle: 0 };
   slot.occupied = true; towers.push(t); towersBuiltThisRun++; hudDirty = true; vibrate(15); burst(t.x, t.y, BASE_TOWER.levels[0].color, 8); 
-  forceSave(); // GRAVA IMEDIATAMENTE
+  forceSave();
 }
 
 function upgradeTower(t){
@@ -591,7 +571,7 @@ function upgradeTower(t){
   gold -= cost; t.level++;
   const data = getTowerLevelData(t);
   hudDirty = true; vibrate(15); burst(t.x, t.y, data.color, 12); floatText(t.x, t.y-22, data.name, "#ffd700"); refreshPopup(); 
-  forceSave(); // GRAVA IMEDIATAMENTE
+  forceSave();
 }
 
 function showBranchChoice(){
@@ -616,9 +596,9 @@ function showBranchChoice(){
 branchCancel.addEventListener("click", () => { branchScreen.classList.remove("show"); pendingBranchTower = null; });
 
 function sellTower(t){
-  const val = towerSellValue(t); gold += val; t.slot.occupied = false; towers = towers.filter(x => x !== t);
+  const val = towerSellValue(t); gold += val; if (t.slot) t.slot.occupied = false; towers = towers.filter(x => x !== t);
   selectedTower = null; hidePopup(); hudDirty = true; burst(t.x, t.y, "#ffd700", 10); floatText(t.x, t.y-16, "+" + val, "#ffd700"); 
-  forceSave(); // GRAVA IMEDIATAMENTE
+  forceSave();
 }
 
 function showPopup(t){ selectedTower = t; popup.classList.add("show"); refreshPopup(); }
@@ -673,7 +653,7 @@ function startWave(){
   if (wave % 5 === 0) showInfo("👑 BOSS · Vaga " + wave);
   else if (wave >= 35) showInfo("🛡️ Escudos · Vaga " + wave);
   else if (wave >= 30) showInfo("⚠️ Difícil · Vaga " + wave);
-  forceSave(); // GRAVA AO COMEÇAR A VAGA
+  forceSave();
 }
 
 function hitEnemy(e, dmg){
@@ -779,6 +759,7 @@ function update(){
   particles = particles.filter(p => { p.x += p.vx; p.y += p.vy; p.vx *= 0.92; p.vy *= 0.92; p.life -= p.decay; return p.life > 0; });
   floats = floats.filter(f => { f.y += f.vy; f.life -= 0.025; return f.life > 0; });
 }
+
 function drawTower(ctx, t){
   const st = towerStats(t); const size = TILE * st.size; const angle = t.angle || 0;
   ctx.save(); ctx.translate(t.x, t.y);
@@ -812,7 +793,6 @@ function render(){
   ctx.strokeStyle = theme.pathDash; ctx.lineWidth = 4; ctx.setLineDash([12, 16]);
   ctx.beginPath(); PATH.forEach((p, i) => { i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y); }); ctx.stroke(); ctx.setLineDash([]);
   
-  // Desenha os slots
   slots.forEach(s => {
     if (!s.buildable || s.occupied) return;
     ctx.beginPath(); ctx.arc(s.x, s.y, TILE*0.35, 0, Math.PI*2); ctx.fillStyle = "rgba(78,205,196,0.08)"; ctx.fill();
@@ -823,7 +803,6 @@ function render(){
   const last = PATH[PATH.length-1];
   ctx.font = "32px sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText("🏰", last.x, last.y - TILE*0.6);
   
-  // Desenha o alcance da torre selecionada (protegido contra erros)
   if (selectedTower && selectedTower.slot && towers.includes(selectedTower)) {
     const st = towerStats(selectedTower); 
     ctx.beginPath(); ctx.arc(selectedTower.x, selectedTower.y, st.range, 0, Math.PI*2);
@@ -995,7 +974,7 @@ ovBtn.addEventListener("click", () => {
     name, 
     score: Math.floor(score), 
     wave: wave - 1, 
-    asc: ascLevel(), // <--- GUARDA A ASCENSÃO AQUI
+    asc: ascLevel(), 
     date: Date.now() 
   });
   
@@ -1031,7 +1010,6 @@ function forceSave(){
     wave, world, gold, lives, score, 
     towers: towers.map(t => ({ type: t.type, level: t.level, branch: t.branch, col: t.col, row: t.row })) 
   }; 
-  // Usa a gravação síncrona imediata em vez do debounce para garantir que o telemóvel não a apaga
   try { localStorage.setItem(SAVE_KEY, JSON.stringify(persistent)); } catch(e) {}
 }
 
@@ -1044,17 +1022,31 @@ window.addEventListener("pagehide", forceSave);
 
 function initGame(){
   loadProgress();
+  resizeCanvas();
+  
   if (persistent.savedState) {
     const s = persistent.savedState; wave = s.wave || 1; world = s.world || 1; gold = s.gold || 150; lives = Math.max(1, s.lives || 15); score = s.score || 0; maxLives = Math.max(lives, 15 + startLivesBonus());
     running = false; gameOverFlag = false; paused = false; enemies = []; projectiles = []; particles = []; floats = []; skeletons = []; spawnQueue = []; spawnTimer = 0;
     killsThisRun = 0; towersBuiltThisRun = 0; speedMul = 1; selectedTower = null; pendingBranchTower = null; pendingBuildSlot = null;
-    setTimeout(() => { resizeCanvas(); if (Array.isArray(s.towers)) { s.towers.flat().forEach(st => { const slot = slots.find(x => x.col === st.col && x.row === st.row && x.buildable && !x.occupied); if (slot && !slot.occupied) { slot.occupied = true; towers.push({ type: "archer", level: st.level || 1, branch: st.branch || null, col: st.col, row: st.row, x: slot.x, y: slot.y, slot, cooldown: 0, angle: 0 }); } }); } }, 50);
+    
+    setTimeout(() => { 
+      if (Array.isArray(s.towers)) { 
+        s.towers.forEach(st => { 
+          const slot = slots.find(x => x.col === st.col && x.row === st.row && x.buildable && !x.occupied); 
+          if (slot && !slot.occupied) { 
+            slot.occupied = true; 
+            towers.push({ type: "archer", level: st.level || 1, branch: st.branch || null, col: st.col, row: st.row, x: slot.x, y: slot.y, slot, cooldown: 0, angle: 0 }); 
+          } 
+        }); 
+      } 
+    }, 50);
   } else {
     gold = 150 + startGoldBonus(); maxLives = 15 + startLivesBonus(); lives = maxLives; wave = 1; world = 1; score = 0; running = false;
     gameOverFlag = false; paused = false; enemies = []; projectiles = []; particles = []; floats = []; skeletons = []; spawnQueue = []; spawnTimer = 0;
     killsThisRun = 0; towersBuiltThisRun = 0; speedMul = 1; selectedTower = null; pendingBranchTower = null; pendingBuildSlot = null; towers = [];
   }
-  resizeCanvas(); setTimeout(resizeCanvas, 50); setTimeout(resizeCanvas, 200);
+  
+  setTimeout(resizeCanvas, 50);
   updateHUD(); updateStartBtn(); renderTalentList(); ovName.value = persistent.playerName || ""; requestAnimationFrame(loop);
 }
 
