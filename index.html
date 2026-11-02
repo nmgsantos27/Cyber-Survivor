@@ -520,11 +520,10 @@ function resizeCanvas(){
 function showBuildMenu(cell){
   if (cell.tower !== null || (cell.r === startCell.r && cell.c === startCell.c) || (cell.r === endCell.r && cell.c === endCell.c)) return;
   
-  // Validação preventiva: verifica se colocar a torre bloqueia o caminho antes de abrir o menu
   cell.tower = { placeholder: true };
   const canPass = recalculatePath();
   cell.tower = null;
-  recalculatePath(); // Restaura trajeto original
+  recalculatePath();
 
   if (!canPass) {
     showInfo("🚫 Rota bloquearia a base!");
@@ -905,7 +904,6 @@ function render(){
     }
   }
 
-  // Linha de Rota dos Inimigos Suavizada e Estável
   if (currentPath.length > 1) {
     ctx.strokeStyle = "rgba(0,240,255,0.12)"; ctx.lineWidth = TILE * 0.55; ctx.lineCap = "round"; ctx.lineJoin = "round";
     ctx.beginPath(); currentPath.forEach((p, i) => { i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y); }); ctx.stroke();
