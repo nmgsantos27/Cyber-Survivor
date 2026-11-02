@@ -807,24 +807,34 @@ function render(){
   ctx.beginPath(); PATH.forEach((p, i) => { i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y); }); ctx.stroke();
   ctx.strokeStyle = theme.pathDash; ctx.lineWidth = 4; ctx.setLineDash([12, 16]);
   ctx.beginPath(); PATH.forEach((p, i) => { i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y); }); ctx.stroke(); ctx.setLineDash([]);
+  
+  // Desenha os slots
   slots.forEach(s => {
     if (!s.buildable || s.occupied) return;
     ctx.beginPath(); ctx.arc(s.x, s.y, TILE*0.35, 0, Math.PI*2); ctx.fillStyle = "rgba(78,205,196,0.08)"; ctx.fill();
     ctx.strokeStyle = "rgba(78,205,196,0.5)"; ctx.lineWidth = 2; ctx.setLineDash([4, 4]); ctx.stroke(); ctx.setLineDash([]);
     ctx.fillStyle = "rgba(78,205,196,0.7)"; ctx.font = "bold 14px sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText("+", s.x, s.y);
   });
+
   const last = PATH[PATH.length-1];
   ctx.font = "32px sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText("🏰", last.x, last.y - TILE*0.6);
-  if (selectedTower) {
-    const st = towerStats(selectedTower); ctx.beginPath(); ctx.arc(selectedTower.x, selectedTower.y, st.range, 0, Math.PI*2);
-    ctx.fillStyle = "rgba(78,205,196,0.06)"; ctx.fill(); ctx.strokeStyle = "rgba(78,205,196,0.45)"; ctx.lineWidth = 1.5; ctx.stroke();
+  
+  // Desenha o alcance da torre selecionada (protegido contra erros)
+  if (selectedTower && selectedTower.slot && towers.includes(selectedTower)) {
+    const st = towerStats(selectedTower); 
+    ctx.beginPath(); ctx.arc(selectedTower.x, selectedTower.y, st.range, 0, Math.PI*2);
+    ctx.fillStyle = "rgba(78,205,196,0.06)"; ctx.fill(); 
+    ctx.strokeStyle = "rgba(78,205,196,0.45)"; ctx.lineWidth = 1.5; ctx.stroke();
   }
+
   towers.forEach(t => drawTower(ctx, t));
+  
   skeletons.forEach(s => {
     ctx.fillStyle = "#e1bee7"; ctx.beginPath(); ctx.arc(s.x, s.y, 6, 0, Math.PI*2); ctx.fill();
     ctx.strokeStyle = "#7e57c2"; ctx.lineWidth = 1.5; ctx.stroke();
     ctx.fillStyle = "#1a1a1a"; ctx.beginPath(); ctx.arc(s.x-2, s.y-1, 1.5, 0, Math.PI*2); ctx.arc(s.x+2, s.y-1, 1.5, 0, Math.PI*2); ctx.fill();
   });
+  
   enemies.forEach(e => {
     if (!e.alive) return;
     ctx.beginPath(); ctx.arc(e.x, e.y, e.radius, 0, Math.PI*2); ctx.fillStyle = e.hitFlash > 0 ? "#fff" : e.color; ctx.fill(); ctx.strokeStyle = "#0a1020"; ctx.lineWidth = 2; ctx.stroke();
@@ -834,6 +844,7 @@ function render(){
     if (e.poison > 0) { ctx.beginPath(); ctx.arc(e.x, e.y, e.radius+4, 0, Math.PI*2); ctx.strokeStyle = "rgba(156,204,101,0.6)"; ctx.lineWidth = 1.5; ctx.stroke(); }
     if (e.regen > 0) { ctx.font = "10px sans-serif"; ctx.fillStyle = "#4caf50"; ctx.textAlign = "center"; ctx.fillText("+", e.x - 6, e.y - e.radius - 14); }
   });
+  
   projectiles.forEach(p => { ctx.beginPath(); ctx.arc(p.x, p.y, 3, 0, Math.PI*2); ctx.fillStyle = p.color; ctx.fill(); });
   particles.forEach(p => { ctx.globalAlpha = p.life * 0.7; ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI*2); ctx.fill(); });
   ctx.globalAlpha = 1;
