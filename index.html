@@ -254,12 +254,12 @@
 
 <script>
 "use strict";
-const SAVE_KEY = "fortalezaEternaCyberV2"; 
+const SAVE_KEY = "fortalezaEternaCyberV3"; 
 const TILE = 32;
 const MAX_RANKING = 20;
 
 const WORLDS = [
-  { id:1, name:"Matriz Base",    bg:"#03050c", gridColor:"rgba(0,240,255,0.03)", path Glow:"#00f0ff" },
+  { id:1, name:"Matriz Base",    bg:"#03050c", gridColor:"rgba(0,240,255,0.03)", pathGlow:"#00f0ff" },
   { id:2, name:"Sector Ardente", bg:"#0d0407", gridColor:"rgba(255,0,85,0.03)", pathGlow:"#ff0055" },
   { id:3, name:"Núcleo Glacial", bg:"#040a12", gridColor:"rgba(0,180,255,0.03)", pathGlow:"#00b4d8" }
 ];
@@ -822,14 +822,12 @@ function drawTower(ctx, t){
   const st = towerStats(t); const size = TILE * st.size; const angle = t.angle || 0;
   ctx.save(); ctx.translate(t.x, t.y);
 
-  // Efeito de brilho de núcleo avançado
   if (t.level >= 5) {
     const pulse = 0.5 + 0.5 * Math.sin(performance.now() / 250);
     ctx.beginPath(); ctx.arc(0, 0, size + 8 + t.level*0.5, 0, Math.PI*2);
     ctx.fillStyle = "rgba(0,240,255," + (0.08 + pulse*0.12) + ")"; ctx.fill();
   }
 
-  // Base hexagonal cibernética da torre
   ctx.beginPath();
   for (let i = 0; i < 6; i++) {
     const a = i * Math.PI / 3;
@@ -842,12 +840,10 @@ function drawTower(ctx, t){
   ctx.strokeStyle = st.color; ctx.lineWidth = 2; ctx.shadowColor = st.color; ctx.shadowBlur = 8; ctx.stroke();
   ctx.shadowBlur = 0;
 
-  // Núcleo central
   ctx.beginPath(); ctx.arc(0, 0, size * 0.7, 0, Math.PI*2);
   ctx.fillStyle = st.color; ctx.fill();
   ctx.strokeStyle = "#03050c"; ctx.lineWidth = 2; ctx.stroke();
 
-  // Canhão / Direção
   ctx.save(); ctx.rotate(angle);
   ctx.fillStyle = "#fff";
   ctx.fillRect(0, -3, size * 1.1, 6);
@@ -855,7 +851,6 @@ function drawTower(ctx, t){
 
   ctx.restore();
 
-  // Nível da torre em formato futurista
   if (t.level > 1) {
     ctx.fillStyle = "#ffb703"; ctx.font = "bold 9px monospace"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
     ctx.shadowColor = "#ffb703"; ctx.shadowBlur = 4;
@@ -870,7 +865,6 @@ function render(){
   const theme = WORLDS[(world - 1) % WORLDS.length];
   ctx.fillStyle = theme.bg; ctx.fillRect(0, 0, w, h);
 
-  // Grelha Cibernética de Fundo
   for(let r=0; r<gridRows; r++){
     for(let c=0; c<gridCols; c++){
       const cell = grid[r][c];
@@ -899,7 +893,6 @@ function render(){
     }
   }
 
-  // Linha de Rota dos Inimigos com efeito Neon
   if (currentPath.length > 1) {
     ctx.strokeStyle = "rgba(0,240,255,0.15)"; ctx.lineWidth = TILE * 0.6; ctx.lineCap = "round"; ctx.lineJoin = "round";
     ctx.beginPath(); currentPath.forEach((p, i) => { i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y); }); ctx.stroke();
@@ -910,7 +903,6 @@ function render(){
     ctx.setLineDash([]); ctx.shadowBlur = 0;
   }
 
-  // Alcance da torre selecionada com círculo holográfico
   if (selectedTower && selectedTower.slot && towers.includes(selectedTower)) {
     const st = towerStats(selectedTower); 
     ctx.beginPath(); ctx.arc(selectedTower.x, selectedTower.y, st.range, 0, Math.PI*2);
@@ -925,7 +917,6 @@ function render(){
     ctx.strokeStyle = "#e0aaff"; ctx.lineWidth = 1.5; ctx.shadowColor = "#b5179e"; ctx.shadowBlur = 6; ctx.stroke(); ctx.shadowBlur = 0;
   });
   
-  // Renderizar Inimigos com formas geométricas sci-fi
   enemies.forEach(e => {
     if (!e.alive) return;
     ctx.save();
