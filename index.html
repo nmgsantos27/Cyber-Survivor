@@ -59,7 +59,7 @@
   <div id="screenOverlay">
     <div class="menu-card">
       <div class="title">GRID RUNNER</div>
-      <div class="subtitle" id="menuSub">Usa o joystick virtual no ecrã para manobrar o núcleo. Apanha corações na arena para recuperar vida!</div>
+      <div class="subtitle" id="menuSub">Usa o joystick virtual no ecrã para manobrar o núcleo. Apanha dados para evoluir e corações na arena para recuperar vida!</div>
       <button class="btn" id="startBtn">INICIALIZAR SISTEMA</button>
     </div>
   </div>
@@ -75,7 +75,7 @@
 
 <script>
 "use strict";
-const SAVE_KEY = "gridRunnerBestScoreV4";
+const SAVE_KEY = "gridRunnerBestScoreV5";
 let bestScore = 0;
 try { const saved = localStorage.getItem(SAVE_KEY); if (saved) bestScore = parseInt(saved, 10) || 0; } catch(_) {}
 
@@ -83,13 +83,11 @@ const cv = document.getElementById("cv"), ctx = cv.getContext("2d");
 const scoreLbl = document.getElementById("scoreLbl"), bestLbl = document.getElementById("bestLbl"), levelLbl = document.getElementById("levelLbl"), lifeLbl = document.getElementById("lifeLbl");
 const xpBar = document.getElementById("xpBar"), screenOverlay = document.getElementById("screenOverlay"), startBtn = document.getElementById("startBtn");
 const levelUpModal = document.getElementById("levelUpModal"), upgradeList = document.getElementById("upgradeList");
-const menuSub = document.getElementById("menuSub"), modalTitle = document.getElementById("modalTitle"), modalSub = document.getElementById("modalSub");
 const infoAlert = document.getElementById("infoAlert");
 
 bestLbl.textContent = bestScore;
 
-let running = false, score = 0, level = 1, xp = 0, maxXp = 30, lives = 3;
-let pendingUpgrades = 0;
+let running = false, score = 0, level = 1, xp = 0, maxXp = 45, lives = 3;
 let player = { x: 0, y: 0, radius: 14, speed: 3.8, fireRate: 35, fireTimer: 0, damage: 1, bulletCount: 1, range: 170 };
 let enemies = [], gems = [], hearts = [], bullets = [];
 let joystick = { active: false, id: null, startX: 0, startY: 0, curX: 0, curY: 0, dx: 0, dy: 0 };
@@ -118,13 +116,9 @@ function resizeCanvas(){
 window.addEventListener("resize", resizeCanvas);
 
 function startGame(){
-  if (pendingUpgrades > 0) {
-    showPendingUpgrades();
-    return;
-  }
   const w = cv.clientWidth, h = cv.clientHeight;
   player.x = w / 2; player.y = h / 2;
-  score = 0; level = 1; xp = 0; maxXp = 30; lives = 3; pendingUpgrades = 0;
+  score = 0; level = 1; xp = 0; maxXp = 45; lives = 3;
   player.speed = 3.8; player.fireRate = 35; player.damage = 1; player.bulletCount = 1; player.range = 170;
   enemies = []; gems = []; hearts = []; bullets = [];
   screenOverlay.classList.add("hidden");
@@ -205,11 +199,10 @@ function spawnEnemy(){
   enemies.push({ x, y, hp, maxHp: hp, speed: speed * (1 + level * 0.04), color, radius, type });
 }
 
-function showPendingUpgrades(){
+function triggerLevelUp(){
+  running = false;
   levelUpModal.classList.add("show");
   upgradeList.innerHTML = "";
-  modalTitle.textContent = `⚡ UPGRADES PENDENTES (${pendingUpgrades})`;
-  modalSub.textContent = "Escolhe um módulo de melhoria:";
 
   const options = [
     { title: "⚡ Overclock de Cadência", desc: "Aumenta a velocidade de disparo em 20%.", apply: () => { player.fireRate = Math.max(10, player.fireRate * 0.8); } },
@@ -225,19 +218,8 @@ function showPendingUpgrades(){
     div.innerHTML = `<div class="u-title">${opt.title}</div><div class="u-desc">${opt.desc}</div>`;
     div.addEventListener("click", () => {
       opt.apply();
-      pendingUpgrades--;
-      if (pendingUpgrades > 0) {
-        showPendingUpgrades();
-      } else {
-        levelUpModal.classList.remove("show");
-        const w = cv.clientWidth, h = cv.clientHeight;
-        player.x = w / 2; player.y = h / 2;
-        score = 0; level = 1; xp = 0; maxXp = 30; lives = 3;
-        enemies = []; gems = []; hearts = []; bullets = [];
-        screenOverlay.classList.add("hidden");
-        running = true;
-        updateHUD();
-      }
+      levelUpModal.classList.remove("show");
+      running = true;
     });
     upgradeList.appendChild(div);
   });
@@ -317,12 +299,7 @@ function update(){
         screenOverlay.classList.remove("hidden");
         document.querySelector(".title").textContent = "FALHA DE SISTEMA";
         document.querySelector(".subtitle").innerHTML = `Pontuação: <b>${score}</b> | Recorde: <b>${bestScore}</b><br>Nível atingido: ${level}`;
-        
-        if (pendingUpgrades > 0) {
-          startBtn.textContent = `GASTAR UPGRADES (${pendingUpgrades})`;
-        } else {
-          startBtn.textContent = "TENTAR DE NOVO";
-        }
+        startBtn.textContent = "TENTAR DE NOVO";
       }
     }
   });
@@ -353,15 +330,15 @@ function update(){
         if (xp >= maxXp) {
           xp -= maxXp;
           level++;
-          maxXp = Math.floor(maxXp * 1.35);
-          pendingUpgrades++;
+          maxXp = Math.floor(maxXp * 1.5); // Exige mais experiência para o próximo nível (mais espaçado)
+          triggerLevelUp(); // Pausa brevemente o jogo para escolheres o upgrade na hora!
 
-          // Chance de surgir um coração cibernético na arena a cada subida de nível
-          if (Math.random() < 0.6) {
+          // Chance de surgir um coração cibernético na arena
+          if (Math.random() < 0.5) {
             hearts.push({
               x: Math.random() * (w - 60) + 30,
               y: Math.random() * (h - 60) + 30,
-              lifeTime: 450 // Desaparece passado algum tempo se não for apanhado
+              lifeTime: 450
             });
           }
         }
@@ -371,7 +348,6 @@ function update(){
   });
   gems = gems.filter(g => !g.collected);
 
-  // Gestão e recolha de corações na arena
   hearts.forEach(hItem => {
     hItem.lifeTime--;
     const d = Math.hypot(player.x - hItem.x, player.y - hItem.y);
@@ -402,7 +378,6 @@ function render(){
     ctx.shadowBlur = 0;
   });
 
-  // Desenhar Corações na Arena
   hearts.forEach(hItem => {
     ctx.fillStyle = "#ff0055";
     ctx.shadowColor = "#ff0055"; ctx.shadowBlur = 10;
