@@ -3,157 +3,156 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta name="theme-color" content="#070a14">
-<title>Fortaleza Eterna: Labirinto</title>
+<meta name="theme-color" content="#03050c">
+<title>Fortaleza Eterna: Cyber Grid</title>
 
-<!-- Suporte para PWA e Instalação -->
 <link rel="manifest" href="./manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Fortaleza Eterna">
+<meta name="apple-mobile-web-app-title" content="Cyber Fortress">
 <link rel="apple-touch-icon" href="./icon.png">
 
 <style>
   * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
-  html, body { width:100%; height:100%; overflow:hidden; background:#0a1020; color:#e8ecf5; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; touch-action:none; user-select:none; -webkit-user-select:none; }
+  html, body { width:100%; height:100%; overflow:hidden; background:#03050c; color:#00f0ff; font-family:"Rajdhani",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; touch-action:none; user-select:none; -webkit-user-select:none; }
   body { display:flex; justify-content:center; align-items:center; }
-  #app { width:100%; max-width:500px; height:100vh; height:100dvh; display:flex; flex-direction:column; position:relative; background:#0a1020; overflow:hidden; }
-  #hud { display:flex; align-items:center; gap:5px; padding:8px 10px; background:#0f1626; border-bottom:1px solid rgba(255,255,255,0.05); flex-shrink:0; z-index:5; }
+  #app { width:100%; max-width:500px; height:100vh; height:100dvh; display:flex; flex-direction:column; position:relative; background:#03050c; overflow:hidden; border: 1px solid rgba(0,240,255,0.2); }
+  #hud { display:flex; align-items:center; gap:6px; padding:10px 12px; background:rgba(5,10,25,0.95); border-bottom:1px solid rgba(0,240,255,0.2); flex-shrink:0; z-index:5; box-shadow:0 0 15px rgba(0,240,255,0.08); }
   .hstat { display:flex; flex-direction:column; align-items:center; line-height:1.1; }
-  .hstat .val { font-size:12px; font-weight:800; }
-  .hstat .lbl { font-size:7px; font-weight:700; color:#5a6b82; margin-top:2px; letter-spacing:0.3px; }
-  .hstat.gold .val { color:#ffd700; }
-  .hstat.ess .val  { color:#c77dff; }
-  .hstat.score .val{ color:#4ecdc4; }
-  .hstat.life .val { color:#ff5252; }
-  .hstat.wave .val { color:#64ffda; }
-  .hstat.asc .val  { color:#ab47bc; }
+  .hstat .val { font-size:13px; font-weight:800; text-shadow:0 0 8px currentColor; }
+  .hstat .lbl { font-size:7px; font-weight:700; color:#5a80a2; margin-top:2px; letter-spacing:0.5px; }
+  .hstat.gold .val { color:#ffb703; }
+  .hstat.ess .val  { color:#b5179e; }
+  .hstat.score .val{ color:#00f0ff; }
+  .hstat.life .val { color:#ff0055; }
+  .hstat.wave .val { color:#70e000; }
+  .hstat.asc .val  { color:#9d4edd; }
   .hspacer { flex:1; }
-  .hbtn { background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); color:#e8ecf5; border-radius:8px; padding:5px 8px; font-size:11px; font-weight:800; cursor:pointer; }
-  .hbtn:active { transform:scale(0.95); }
-  #gamewrap { flex:1; width:100%; position:relative; background:#0a1020; overflow:hidden; min-height:200px; }
+  .hbtn { background:rgba(0,240,255,0.08); border:1px solid rgba(0,240,255,0.3); color:#00f0ff; border-radius:6px; padding:6px 10px; font-size:11px; font-weight:800; cursor:pointer; box-shadow:0 0 8px rgba(0,240,255,0.1); }
+  .hbtn:active { transform:scale(0.95); background:rgba(0,240,255,0.2); }
+  #gamewrap { flex:1; width:100%; position:relative; background:#03050c; overflow:hidden; min-height:200px; }
   canvas#cv { display:block; width:100%; height:100%; touch-action:none; }
-  #waveProgress { position:absolute; top:0; left:0; height:3px; background:#64ffda; width:0%; transition:width .15s linear; z-index:6; box-shadow:0 0 8px #64ffda; }
-  #menuBtn { position:absolute; top:12px; right:12px; z-index:15; width:44px; height:44px; border-radius:12px; background:rgba(78,205,196,0.1); border:1px solid rgba(78,205,196,0.3); color:#4ecdc4; font-size:22px; cursor:pointer; display:flex; align-items:center; justify-content:center; }
+  #waveProgress { position:absolute; top:0; left:0; height:3px; background:#00f0ff; width:0%; transition:width .15s linear; z-index:6; box-shadow:0 0 10px #00f0ff; }
+  #menuBtn { position:absolute; top:12px; right:12px; z-index:15; width:44px; height:44px; border-radius:10px; background:rgba(181,23,158,0.15); border:1px solid rgba(181,23,158,0.4); color:#b5179e; font-size:20px; cursor:pointer; display:flex; align-items:center; justify-content:center; box-shadow:0 0 10px rgba(181,23,158,0.2); }
   #menuBtn:active { transform:scale(0.92); }
-  #pauseBadge { position:absolute; top:12px; left:12px; z-index:15; display:none; padding:6px 12px; border-radius:8px; background:rgba(255,215,0,0.15); border:1px solid rgba(255,215,0,0.4); color:#ffd700; font-size:12px; font-weight:800; }
+  #pauseBadge { position:absolute; top:12px; left:12px; z-index:15; display:none; padding:6px 12px; border-radius:6px; background:rgba(255,183,3,0.15); border:1px solid rgba(255,183,3,0.4); color:#ffb703; font-size:12px; font-weight:800; box-shadow:0 0 10px rgba(255,183,3,0.2); }
   #pauseBadge.show { display:block; cursor:pointer; pointer-events:auto; }
-  #info { position:absolute; top:20%; left:50%; transform:translateX(-50%); background:rgba(15,22,38,0.95); border:1px solid rgba(78,205,196,0.4); color:#fff; padding:10px 20px; border-radius:20px; font-size:14px; font-weight:700; white-space:nowrap; pointer-events:none; opacity:0; transition:opacity .2s; z-index:20; }
+  #info { position:absolute; top:20%; left:50%; transform:translateX(-50%); background:rgba(5,10,25,0.95); border:1px solid #00f0ff; color:#00f0ff; padding:10px 20px; border-radius:12px; font-size:14px; font-weight:700; white-space:nowrap; pointer-events:none; opacity:0; transition:opacity .2s; z-index:20; box-shadow:0 0 15px rgba(0,240,255,0.4); }
   #info.show { opacity:1; }
-  #startBtn { position:absolute; bottom:16px; right:16px; z-index:15; min-width:100px; height:60px; padding:0 16px; border-radius:16px; background:#4ecdc4; border:none; color:#0a1020; font-weight:900; font-size:12px; cursor:pointer; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; box-shadow: 0 4px 20px rgba(78,205,196,0.4); }
-  #startBtn.boss { background:#f44336; color:#fff; animation:pulse 1s infinite; box-shadow: 0 4px 20px rgba(244,67,54,0.5); }
-  #startBtn:disabled { opacity:0.5; background:#2d3a4f; color:#8fa3bd; box-shadow:none; }
-  #startBtn small { font-size:9px; font-weight:700; opacity:0.8; }
-  @keyframes pulse { 0%,100%{ transform:scale(1); } 50%{ transform:scale(1.05); } }
-  #buildMenu, #popup, #branchScreen, #ascendScreen, #talentScreen, #rankingScreen, #overlay { position:absolute; inset:0; z-index:30; background:rgba(10,16,32,0.92); display:flex; flex-direction:column; justify-content:center; padding:20px; opacity:0; pointer-events:none; transition:opacity .2s; overflow-y:auto; }
+  #startBtn { position:absolute; bottom:16px; right:16px; z-index:15; min-width:110px; height:56px; padding:0 16px; border-radius:12px; background:#00f0ff; border:none; color:#03050c; font-weight:900; font-size:12px; cursor:pointer; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; box-shadow:0 0 20px rgba(0,240,255,0.5); }
+  #startBtn.boss { background:#ff0055; color:#fff; animation:pulse 1s infinite; box-shadow:0 0 25px rgba(255,0,85,0.8); }
+  #startBtn:disabled { opacity:0.4; background:#101a30; color:#4a658a; box-shadow:none; }
+  #startBtn small { font-size:9px; font-weight:700; opacity:0.85; }
+  @keyframes pulse { 0%,100%{ transform:scale(1); } 50%{ transform:scale(1.04); } }
+  #buildMenu, #popup, #branchScreen, #ascendScreen, #talentScreen, #rankingScreen, #overlay { position:absolute; inset:0; z-index:30; background:rgba(3,5,12,0.94); backdrop-filter:blur(5px); display:flex; flex-direction:column; justify-content:center; padding:20px; opacity:0; pointer-events:none; transition:opacity .2s; overflow-y:auto; }
   #buildMenu.show, #popup.show, #branchScreen.show, #ascendScreen.show, #talentScreen.show, #rankingScreen.show, #overlay.show { opacity:1; pointer-events:auto; }
-  .menu-card { max-width:400px; margin:0 auto; width:100%; background:#0f1626; border:1px solid rgba(255,255,255,0.1); border-radius:18px; padding:18px; box-shadow:0 10px 40px rgba(0,0,0,0.9); }
+  .menu-card { max-width:400px; margin:0 auto; width:100%; background:#070e22; border:1px solid rgba(0,240,255,0.3); border-radius:14px; padding:18px; box-shadow:0 10px 40px rgba(0,0,0,0.9), 0 0 20px rgba(0,240,255,0.1); }
   .menu-head { display:flex; align-items:center; gap:10px; margin-bottom:14px; }
-  .menu-title { font-size:17px; font-weight:900; flex:1; }
-  .menu-close { width:32px; height:32px; border-radius:8px; background:rgba(255,82,82,0.1); border:1px solid rgba(255,82,82,0.3); color:#ff5252; font-size:16px; cursor:pointer; }
-  .build-item { display:flex; align-items:center; gap:12px; padding:14px; background:#141c2e; border:1px solid rgba(78,205,196,0.2); border-radius:14px; cursor:pointer; transition:all .15s; margin-bottom:8px; }
-  .build-item:active { transform:scale(0.98); background:#1a2438; }
-  .build-item.disabled { opacity:0.4; cursor:not-allowed; }
-  .build-item .bico { font-size:32px; width:48px; text-align:center; }
+  .menu-title { font-size:17px; font-weight:900; flex:1; color:#00f0ff; text-shadow:0 0 8px rgba(0,240,255,0.4); }
+  .menu-close { width:32px; height:32px; border-radius:8px; background:rgba(255,0,85,0.15); border:1px solid rgba(255,0,85,0.4); color:#ff0055; font-size:16px; cursor:pointer; }
+  .build-item { display:flex; align-items:center; gap:12px; padding:14px; background:#0d1836; border:1px solid rgba(0,240,255,0.25); border-radius:10px; cursor:pointer; transition:all .15s; margin-bottom:8px; }
+  .build-item:active { transform:scale(0.98); background:#142450; }
+  .build-item.disabled { opacity:0.35; cursor:not-allowed; }
+  .build-item .bico { font-size:28px; width:42px; text-align:center; }
   .build-item .binfo { flex:1; }
-  .build-item .bnm { font-size:15px; font-weight:800; }
-  .build-item .bdesc { font-size:11px; color:#8fa3bd; font-weight:600; margin-top:2px; }
-  .build-item .bcost { font-size:15px; font-weight:900; color:#ffd700; }
-  .menu-cancel { width:100%; padding:14px; margin-top:10px; border-radius:12px; border:none; background:#3a506b; color:#fff; font-weight:900; font-size:14px; cursor:pointer; }
+  .build-item .bnm { font-size:15px; font-weight:800; color:#fff; }
+  .build-item .bdesc { font-size:11px; color:#7a9cb8; font-weight:600; margin-top:2px; }
+  .build-item .bcost { font-size:15px; font-weight:900; color:#ffb703; text-shadow:0 0 6px rgba(255,183,3,0.4); }
+  .menu-cancel { width:100%; padding:14px; margin-top:10px; border-radius:10px; border:1px solid rgba(0,240,255,0.2); background:#101a30; color:#00f0ff; font-weight:900; font-size:14px; cursor:pointer; }
   .popup-stats { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-bottom:12px; }
-  .pstat { background:rgba(255,255,255,0.03); border-radius:10px; padding:8px; text-align:center; }
-  .pstat .v { font-size:14px; font-weight:800; color:#4ecdc4; }
-  .pstat .l { font-size:10px; color:#5a6b82; font-weight:700; text-transform:uppercase; margin-top:2px; }
+  .pstat { background:rgba(0,240,255,0.04); border:1px solid rgba(0,240,255,0.15); border-radius:8px; padding:8px; text-align:center; }
+  .pstat .v { font-size:14px; font-weight:800; color:#00f0ff; text-shadow:0 0 6px rgba(0,240,255,0.4); }
+  .pstat .l { font-size:10px; color:#5a80a2; font-weight:700; text-transform:uppercase; margin-top:2px; }
   .popup-btns { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
-  .pbtn { padding:14px 8px; border-radius:10px; font-size:13px; font-weight:800; cursor:pointer; border:none; text-align:center; line-height:1.2; color:#fff; }
+  .pbtn { padding:14px 8px; border-radius:8px; font-size:13px; font-weight:800; cursor:pointer; border:none; text-align:center; line-height:1.2; color:#03050c; }
   .pbtn small { display:block; font-size:11px; opacity:0.9; margin-top:4px; font-weight:700; }
-  .pbtn.upg { background:#2d8a84; }
-  .pbtn.sell{ background:#c62828; }
-  .pbtn.confirm { background:#ff9800; color:#0a1020; }
-  .pbtn:disabled { opacity:0.3; }
+  .pbtn.upg { background:#00f0ff; box-shadow:0 0 10px rgba(0,240,255,0.4); }
+  .pbtn.sell{ background:#ff0055; color:#fff; box-shadow:0 0 10px rgba(255,0,85,0.4); }
+  .pbtn.confirm { background:#ffb703; color:#03050c; }
+  .pbtn:disabled { opacity:0.3; box-shadow:none; }
   .pbtn:active:not(:disabled) { transform:scale(0.95); }
-  .stars-row { display:flex; gap:2px; justify-content:center; margin-bottom:10px; flex-wrap:wrap; }
-  .star { font-size:13px; opacity:0.25; }
-  .star.on { opacity:1; }
-  #talentScreen, #rankingScreen { inset:0; background:#0a1020; justify-content:flex-start; padding:20px; z-index:40; }
-  .tal-head { display:flex; align-items:center; gap:10px; margin-bottom:16px; color:#c77dff; }
-  .tal-head h2 { font-size:22px; font-weight:900; flex:1; }
-  .tal-ess { font-size:14px; font-weight:800; color:#c77dff; text-align:center; margin-bottom:16px; }
-  .tal-conv-box { background:#221c33; border:1px solid #c77dff; border-radius:12px; padding:16px; display:flex; align-items:center; gap:12px; margin-bottom:16px; }
-  .tal-conv-box .icon-box { background:#3d2b59; padding:10px; border-radius:50%; font-size:20px; }
+  .stars-row { display:flex; gap:3px; justify-content:center; margin-bottom:12px; flex-wrap:wrap; }
+  .star { font-size:13px; opacity:0.25; color:#ffb703; }
+  .star.on { opacity:1; text-shadow:0 0 6px #ffb703; }
+  #talentScreen, #rankingScreen { inset:0; background:#03050c; justify-content:flex-start; padding:20px; z-index:40; }
+  .tal-head { display:flex; align-items:center; gap:10px; margin-bottom:16px; color:#b5179e; }
+  .tal-head h2 { font-size:22px; font-weight:900; flex:1; text-shadow:0 0 10px rgba(181,23,158,0.4); }
+  .tal-ess { font-size:14px; font-weight:800; color:#b5179e; text-align:center; margin-bottom:16px; text-shadow:0 0 8px rgba(181,23,158,0.3); }
+  .tal-conv-box { background:#120722; border:1px solid rgba(181,23,158,0.4); border-radius:10px; padding:14px; display:flex; align-items:center; gap:12px; margin-bottom:16px; box-shadow:0 0 15px rgba(181,23,158,0.15); }
+  .tal-conv-box .icon-box { background:#24103d; padding:10px; border-radius:50%; font-size:20px; }
   .tal-conv-box .info { flex:1; }
-  .tal-conv-box .info b { font-weight:800; color:#ffd700; display:block; font-size:14px; }
-  .tal-conv-box .info span { font-size:12px; color:#8fa3bd; }
-  .tal-conv-box button { background:#3d2b59; border:1px solid #5a3d82; color:#ffd700; padding:8px 12px; border-radius:8px; font-weight:800; font-size:12px; cursor:pointer; }
+  .tal-conv-box .info b { font-weight:800; color:#ffb703; display:block; font-size:14px; }
+  .tal-conv-box .info span { font-size:12px; color:#7a9cb8; }
+  .tal-conv-box button { background:#24103d; border:1px solid #b5179e; color:#ffb703; padding:8px 12px; border-radius:6px; font-weight:800; font-size:12px; cursor:pointer; }
   .tal-conv-box button:disabled { opacity:0.4; }
-  .tal-list { flex:1; display:flex; flex-direction:column; gap:10px; margin-bottom:16px; }
-  .tal-item { display:flex; align-items:center; gap:12px; padding:14px; background:#141c2e; border:1px solid rgba(255,255,255,0.08); border-radius:16px; }
-  .tal-item .tico { font-size:28px; }
+  .tal-list { flex:1; display:flex; flex-direction:column; gap:10px; margin-bottom:16px; overflow-y:auto; }
+  .tal-item { display:flex; align-items:center; gap:12px; padding:12px 14px; background:#070e22; border:1px solid rgba(0,240,255,0.15); border-radius:12px; }
+  .tal-item .tico { font-size:26px; }
   .tal-item .tinfo { flex:1; }
-  .tal-item .tnm { font-size:15px; font-weight:800; }
-  .tal-item .tdesc { font-size:11px; color:#8fa3bd; font-weight:600; margin-top:2px; }
-  .tal-buy { background:#7b42bc; border:none; color:#fff; padding:10px 14px; border-radius:10px; font-weight:900; font-size:13px; cursor:pointer; }
-  .tal-buy:disabled { background:#2d1f3d; color:#8855aa; }
+  .tal-item .tnm { font-size:15px; font-weight:800; color:#fff; }
+  .tal-item .tdesc { font-size:11px; color:#7a9cb8; font-weight:600; margin-top:2px; }
+  .tal-buy { background:#9d4edd; border:none; color:#fff; padding:8px 14px; border-radius:8px; font-weight:900; font-size:12px; cursor:pointer; box-shadow:0 0 10px rgba(157,78,221,0.4); }
+  .tal-buy:disabled { background:#151022; color:#554477; box-shadow:none; }
   .tal-bottom { display:flex; gap:10px; margin-top:10px; }
-  .tal-close, .tal-rank { flex:1; padding:16px; border-radius:14px; border:none; font-weight:900; font-size:15px; color:#fff; cursor:pointer; text-align:center; }
-  .tal-close { background:#3a506b; }
-  .tal-rank { background:#ab47bc; }
-  .tal-save { width:100%; padding:16px; margin-top:10px; border-radius:14px; border:none; font-weight:900; font-size:15px; background:#2e7d32; color:#fff; cursor:pointer; }
-  .rk-item { display:flex; gap:8px; padding:10px 12px; background:#141c2e; border-radius:8px; font-size:13px; margin-bottom:6px; align-items:center; }
-  .rk-pos { font-weight:900; color:#ffd700; min-width:26px; font-size:14px; }
-  .rk-name { flex:1; font-weight:700; text-align:left; }
-  .rk-score { font-weight:900; color:#4ecdc4; }
-  .rk-wave { color:#8fa3bd; font-size:11px; margin-left:4px; }
-  #overlay { background:rgba(10,16,32,0.98); z-index:45; text-align:center; }
-  .ov-title { font-size:32px; font-weight:900; color:#ff5252; margin-bottom:10px; }
-  .ov-sub { color:#8fa3bd; font-weight:700; font-size:14px; }
+  .tal-close, .tal-rank { flex:1; padding:14px; border-radius:10px; border:none; font-weight:900; font-size:14px; color:#fff; cursor:pointer; text-align:center; }
+  .tal-close { background:#101a30; border:1px solid rgba(0,240,255,0.2); color:#00f0ff; }
+  .tal-rank { background:#9d4edd; box-shadow:0 0 10px rgba(157,78,221,0.4); }
+  .tal-save { width:100%; padding:14px; margin-top:10px; border-radius:10px; border:none; font-weight:900; font-size:14px; background:#00f0ff; color:#03050c; cursor:pointer; box-shadow:0 0 15px rgba(0,240,255,0.4); }
+  .rk-item { display:flex; gap:8px; padding:10px 12px; background:#070e22; border:1px solid rgba(0,240,255,0.15); border-radius:8px; font-size:13px; margin-bottom:6px; align-items:center; }
+  .rk-pos { font-weight:900; color:#ffb703; min-width:26px; font-size:14px; }
+  .rk-name { flex:1; font-weight:700; text-align:left; color:#fff; }
+  .rk-score { font-weight:900; color:#00f0ff; }
+  .rk-wave { color:#7a9cb8; font-size:11px; margin-left:4px; }
+  #overlay { background:rgba(3,5,12,0.97); z-index:45; text-align:center; }
+  .ov-title { font-size:32px; font-weight:900; color:#ff0055; margin-bottom:10px; text-shadow:0 0 15px rgba(255,0,85,0.6); }
+  .ov-sub { color:#7a9cb8; font-weight:700; font-size:14px; }
   .ov-stats { display:grid; grid-template-columns:1fr 1fr; gap:10px; width:100%; max-width:300px; margin:20px auto; }
-  .ov-stat { background:#141c2e; padding:12px; border-radius:12px; }
-  .ov-stat .v { font-size:20px; font-weight:900; color:#4ecdc4; }
-  .ov-stat .l { font-size:10px; color:#5a6b82; font-weight:700; text-transform:uppercase; }
-  .ov-input { width:100%; max-width:300px; padding:14px; border-radius:12px; background:#141c2e; border:1px solid #3a506b; color:#fff; font-size:16px; font-weight:700; text-align:center; margin-bottom:10px; outline:none; }
-  .ov-btn { width:100%; max-width:300px; padding:16px; border-radius:12px; background:#4ecdc4; border:none; color:#0a1020; font-weight:900; font-size:16px; cursor:pointer; margin-bottom:8px; }
+  .ov-stat { background:#070e22; border:1px solid rgba(0,240,255,0.2); padding:12px; border-radius:10px; }
+  .ov-stat .v { font-size:20px; font-weight:900; color:#00f0ff; text-shadow:0 0 8px rgba(0,240,255,0.4); }
+  .ov-stat .l { font-size:10px; color:#5a80a2; font-weight:700; text-transform:uppercase; }
+  .ov-input { width:100%; max-width:300px; padding:14px; border-radius:10px; background:#070e22; border:1px solid rgba(0,240,255,0.3); color:#fff; font-size:16px; font-weight:700; text-align:center; margin-bottom:10px; outline:none; }
+  .ov-btn { width:100%; max-width:300px; padding:16px; border-radius:10px; background:#00f0ff; border:none; color:#03050c; font-weight:900; font-size:16px; cursor:pointer; margin-bottom:8px; box-shadow:0 0 20px rgba(0,240,255,0.5); }
   .ov-ranking { width:100%; max-width:300px; max-height:140px; overflow-y:auto; margin:16px auto; }
-  #ascendScreen { background:rgba(10,16,32,0.98); z-index:45; text-align:center; }
-  .asc-title { font-size:28px; font-weight:900; color:#ab47bc; margin-bottom:8px; }
-  .asc-sub { color:#8fa3bd; font-weight:700; font-size:13px; margin-bottom:20px; }
-  .asc-card { background:#141c2e; border:1px solid #ab47bc; border-radius:14px; padding:16px; max-width:340px; margin:0 auto 12px; text-align:left; }
-  .asc-card .lbl { font-size:11px; color:#8fa3bd; font-weight:700; text-transform:uppercase; }
-  .asc-card .val { font-size:20px; font-weight:900; color:#ffd700; }
-  .asc-bonus { display:flex; align-items:center; gap:10px; padding:10px; margin-top:8px; background:rgba(171,71,188,0.1); border-radius:10px; border:1px solid rgba(171,71,188,0.3); }
+  #ascendScreen { background:rgba(3,5,12,0.97); z-index:45; text-align:center; }
+  .asc-title { font-size:28px; font-weight:900; color:#9d4edd; margin-bottom:8px; text-shadow:0 0 15px rgba(157,78,221,0.6); }
+  .asc-sub { color:#7a9cb8; font-weight:700; font-size:13px; margin-bottom:20px; }
+  .asc-card { background:#070e22; border:1px solid rgba(157,78,221,0.4); border-radius:12px; padding:16px; max-width:340px; margin:0 auto 12px; text-align:left; box-shadow:0 0 15px rgba(157,78,221,0.15); }
+  .asc-card .lbl { font-size:11px; color:#7a9cb8; font-weight:700; text-transform:uppercase; }
+  .asc-card .val { font-size:20px; font-weight:900; color:#ffb703; text-shadow:0 0 8px rgba(255,183,3,0.4); }
+  .asc-bonus { display:flex; align-items:center; gap:10px; padding:10px; margin-top:8px; background:rgba(157,78,221,0.1); border-radius:8px; border:1px solid rgba(157,78,221,0.3); }
   .asc-bonus .ico { font-size:24px; }
-  .asc-bonus .txt { flex:1; font-size:12px; font-weight:700; color:#e8ecf5; }
+  .asc-bonus .txt { flex:1; font-size:12px; font-weight:700; color:#fff; }
   .asc-btns { display:flex; flex-direction:column; gap:10px; max-width:340px; margin:16px auto 0; }
-  .asc-confirm { width:100%; padding:16px; border-radius:12px; border:none; font-weight:900; font-size:15px; color:#fff; cursor:pointer; background:#ab47bc; }
-  .asc-cancel { width:100%; padding:14px; border-radius:12px; border:none; font-weight:900; font-size:13px; color:#fff; cursor:pointer; background:#3a506b; }
+  .asc-confirm { width:100%; padding:16px; border-radius:10px; border:none; font-weight:900; font-size:15px; color:#fff; cursor:pointer; background:#9d4edd; box-shadow:0 0 20px rgba(157,78,221,0.5); }
+  .asc-cancel { width:100%; padding:14px; border-radius:10px; border:none; font-weight:900; font-size:13px; color:#00f0ff; cursor:pointer; background:#101a30; border:1px solid rgba(0,240,255,0.2); }
 </style>
 </head>
 <body>
 <div id="app">
   <div id="hud">
-    <div class="hstat gold"><div class="val" id="goldLbl">0</div><div class="lbl">OURO</div></div>
-    <div class="hstat ess"><div class="val" id="essLbl">0</div><div class="lbl">ESSÊNCIA</div></div>
+    <div class="hstat gold"><div class="val" id="goldLbl">0</div><div class="lbl">CRÉDITOS</div></div>
+    <div class="hstat ess"><div class="val" id="essLbl">0</div><div class="lbl">NÚCLEOS</div></div>
     <div class="hstat score"><div class="val" id="scoreLbl">0</div><div class="lbl">PONTOS</div></div>
-    <div class="hstat life"><div class="val" id="lifeLbl">15</div><div class="lbl">VIDAS</div></div>
-    <div class="hstat wave"><div class="val" id="waveLbl">1</div><div class="lbl">VAGA</div></div>
-    <div class="hstat asc"><div class="val" id="ascLbl">0</div><div class="lbl">ASCENSÃO</div></div>
+    <div class="hstat life"><div class="val" id="lifeLbl">15</div><div class="lbl">INTEGRIDADE</div></div>
+    <div class="hstat wave"><div class="val" id="waveLbl">1</div><div class="lbl">SECTOR</div></div>
+    <div class="hstat asc"><div class="val" id="ascLbl">0</div><div class="lbl">OVERCLOCK</div></div>
     <div class="hspacer"></div>
     <button class="hbtn" id="speedBtn">1x</button>
   </div>
   <div id="gamewrap">
     <canvas id="cv"></canvas>
     <div id="waveProgress"></div>
-    <button id="menuBtn">🌳</button>
+    <button id="menuBtn">⚡</button>
     <div id="pauseBadge" role="button" tabindex="0">⏸ PAUSA</div>
     <div id="info"></div>
-    <button id="startBtn"><span id="startBtnTxt">VAGA 1</span><small id="startBtnSub">iniciar</small></button>
-    <button id="ascendQuickBtn" type="button" aria-label="Ascender" style="position:absolute;bottom:85px;right:16px;z-index:15;display:none;padding:10px 14px;border:1px solid #ab47bc;border-radius:12px;background:#251334;color:white;font-weight:800;cursor:pointer">🌟 Ascender</button>
+    <button id="startBtn"><span id="startBtnTxt">SECTOR 1</span><small id="startBtnSub">iniciar</small></button>
+    <button id="ascendQuickBtn" type="button" aria-label="Overclock" style="position:absolute;bottom:85px;right:16px;z-index:15;display:none;padding:10px 14px;border:1px solid #9d4edd;border-radius:10px;background:#150a24;color:#e2b7ff;font-weight:800;cursor:pointer;box-shadow:0 0 15px rgba(157,78,221,0.4)">⚡ Overclock</button>
   </div>
 
   <div id="buildMenu">
     <div class="menu-card">
       <div class="menu-head">
-        <div class="menu-title">🏰 Construir Torre</div>
+        <div class="menu-title">⚡ Instalar Módulo</div>
         <button class="menu-close" id="buildClose">✕</button>
       </div>
       <div id="buildList"></div>
@@ -164,7 +163,7 @@
   <div id="popup">
     <div class="menu-card">
       <div class="menu-head">
-        <div class="menu-title" id="popTitle">Torre</div>
+        <div class="menu-title" id="popTitle">Módulo</div>
         <button class="menu-close" id="popClose">✕</button>
       </div>
       <div class="popup-stats">
@@ -174,8 +173,8 @@
       </div>
       <div class="stars-row" id="popStars"></div>
       <div class="popup-btns">
-        <button class="pbtn upg" id="upgBtn">Melhorar<small id="upgCost">0</small></button>
-        <button class="pbtn sell" id="sellBtn">Vender<small id="sellVal">0</small></button>
+        <button class="pbtn upg" id="upgBtn">Upgrade<small id="upgCost">0</small></button>
+        <button class="pbtn sell" id="sellBtn">Reciclar<small id="sellVal">0</small></button>
       </div>
     </div>
   </div>
@@ -183,129 +182,130 @@
   <div id="branchScreen">
     <div class="menu-card">
       <div class="menu-head">
-        <div class="menu-title" style="color:#ffd700;">✨ Escolhe o Caminho</div>
+        <div class="menu-title" style="color:#ffb703;">⚡ Protocolo de Especialização</div>
       </div>
-      <p style="font-size:12px;color:#8fa3bd;margin-bottom:12px;text-align:center;">Esta escolha é permanente.</p>
+      <p style="font-size:12px;color:#7a9cb8;margin-bottom:12px;text-align:center;">Esta escolha de hardware é permanente.</p>
       <div id="branchList"></div>
       <button class="menu-cancel" id="branchCancel">Cancelar</button>
     </div>
   </div>
 
   <div id="ascendScreen">
-    <div class="asc-title">🌟 ASCENSÃO</div>
-    <div class="asc-sub">Reset completo. Ganhas poder permanente.</div>
+    <div class="asc-title">⚡ OVERCLOCK SISTEMA</div>
+    <div class="asc-sub">Reset completo da grelha. Ganhas poder cibernético permanente.</div>
     <div class="asc-card">
-      <div class="lbl">Pontos a ganhar</div>
+      <div class="lbl">Núcleos a obter</div>
       <div class="val" id="ascPoints">+0</div>
-      <div class="lbl" style="margin-top:8px;">Nível de Ascensão atual</div>
-      <div class="val" id="ascCurrent" style="color:#ab47bc;">0</div>
+      <div class="lbl" style="margin-top:8px;">Nível Overclock atual</div>
+      <div class="val" id="ascCurrent" style="color:#9d4edd;">0</div>
     </div>
     <div class="asc-card" id="ascBonusCard">
-      <div class="lbl">Próximo desbloqueio</div>
+      <div class="lbl">Próxima melhoria de sistema</div>
       <div class="asc-bonus" id="ascNextBonus">
         <div class="ico">🎁</div>
         <div class="txt">Bónus</div>
       </div>
     </div>
     <div class="asc-btns">
-      <button class="asc-confirm" id="ascConfirm">🌟 ASCENDER</button>
+      <button class="asc-confirm" id="ascConfirm">⚡ EXECUTAR OVERCLOCK</button>
       <button class="asc-cancel" id="ascCancel">Ainda não</button>
     </div>
   </div>
 
   <div id="talentScreen">
-    <div class="tal-head"><h2>🌳 Talentos</h2></div>
-    <div class="tal-ess">Essência: <span id="talEss">0</span> 💎 · Ascensão: <span id="talAsc">0</span> 🌟</div>
+    <div class="tal-head"><h2>⚡ Módulos de Núcleo</h2></div>
+    <div class="tal-ess">Núcleos: <span id="talEss">0</span> 💎 · Overclock: <span id="talAsc">0</span> ⚡</div>
     <div class="tal-conv-box">
       <div class="icon-box">🪙</div>
       <div class="info">
-        <b><span id="convGoldTxt">0</span> 🪙 disponíveis</b>
+        <b><span id="convGoldTxt">0</span> 🪙 créditos disponíveis</b>
         <span>1000 🪙 = 1 💎</span>
       </div>
       <button id="talConv">Converter</button>
     </div>
     <div class="tal-list" id="talList"></div>
     <div class="tal-bottom">
-      <button class="tal-rank" id="btnRanking">🏆 Ranking</button>
+      <button class="tal-rank" id="btnRanking">🏆 Recordes</button>
       <button class="tal-close" id="talClose">Voltar</button>
     </div>
-    <button class="tal-save" id="talSave">💾 Guardar</button>
+    <button class="tal-save" id="talSave">💾 Guardar Estado</button>
   </div>
 
   <div id="rankingScreen">
-    <div class="tal-head"><h2>🏆 Recordes neste dispositivo</h2></div>
+    <div class="tal-head"><h2>🏆 Registo de Sectores</h2></div>
     <div id="globalRankingList" style="flex:1;overflow-y:auto;margin-bottom:16px;"></div>
     <button class="tal-close" id="rankClose">Voltar</button>
   </div>
 
   <div id="overlay">
-    <div class="ov-title">Fim de Jogo</div>
-    <div class="ov-sub">A base caiu na vaga <span id="ovWave">1</span>!</div>
+    <div class="ov-title">Falha de Sistema</div>
+    <div class="ov-sub">A base colapsou no sector <span id="ovWave">1</span>!</div>
     <div class="ov-stats">
-      <div class="ov-stat"><div class="v" id="ovWave2">0</div><div class="l">Vagas</div></div>
+      <div class="ov-stat"><div class="v" id="ovWave2">0</div><div class="l">Sectores</div></div>
       <div class="ov-stat"><div class="v" id="ovScore">0</div><div class="l">Pontos</div></div>
-      <div class="ov-stat"><div class="v" id="ovKills">0</div><div class="l">Abates</div></div>
-      <div class="ov-stat"><div class="v" id="ovTowers">0</div><div class="l">Torres</div></div>
+      <div class="ov-stat"><div class="v" id="ovKills">0</div><div class="l">Eliminações</div></div>
+      <div class="ov-stat"><div class="v" id="ovTowers">0</div><div class="l">Módulos</div></div>
     </div>
-    <input class="ov-input" id="ovName" placeholder="O teu nome" maxlength="16">
-    <button class="ov-btn" id="ovBtn">Jogar Novamente</button>
+    <input class="ov-input" id="ovName" placeholder="Identificação Operador" maxlength="16">
+    <button class="ov-btn" id="ovBtn">Reiniciar Sistema</button>
     <div class="ov-ranking" id="ovRanking"></div>
   </div>
 </div>
+
 <script>
 "use strict";
-const SAVE_KEY = "fortalezaEternaMazeV1"; 
+const SAVE_KEY = "fortalezaEternaCyberV2"; 
 const TILE = 32;
 const MAX_RANKING = 20;
 
 const WORLDS = [
-  { id:1, name:"Prado Verde",    bg:"#0a1020", path:"#2d3a4f", pathDash:"#4a607a" },
-  { id:2, name:"Deserto Árido",  bg:"#1a150a", path:"#4a3b2c", pathDash:"#7a6046" },
-  { id:3, name:"Vulcão Sombrio", bg:"#1a0a0a", path:"#422020", pathDash:"#733535" }
+  { id:1, name:"Matriz Base",    bg:"#03050c", gridColor:"rgba(0,240,255,0.03)", path Glow:"#00f0ff" },
+  { id:2, name:"Sector Ardente", bg:"#0d0407", gridColor:"rgba(255,0,85,0.03)", pathGlow:"#ff0055" },
+  { id:3, name:"Núcleo Glacial", bg:"#040a12", gridColor:"rgba(0,180,255,0.03)", pathGlow:"#00b4d8" }
 ];
 
 const BASE_TOWER = {
-  ico: "🏹", cost: 70,
+  ico: "💠", cost: 70,
   levels: [
-    { name:"Arqueiro", dmg:4,  range:110, rate:26, color:"#4ecdc4", size:0.30 },
-    { name:"Besteiro", dmg:10, range:120, rate:24, color:"#26a69a", size:0.35 }
+    { name:"Emissor Base", dmg:4,  range:110, rate:26, color:"#00f0ff", size:0.32 },
+    { name:"Emissor Duplo", dmg:10, range:120, rate:24, color:"#0096c7", size:0.36 }
   ]
 };
 
 const BRANCHES = {
-  damage: { ico: "🎯", name: "Atirador", color: "#4ecdc4", tagline: "Dano puro. Anti-boss.", special: null, unlockAsc: 0, levels: [ { name:"Atirador Elite", dmg:28, range:135, rate:24, color:"#00897b", size:0.40 }, { name:"Sniper", dmg:65, range:155, rate:22, color:"#00695c", size:0.46 }, { name:"Lenda Viva", dmg:160,range:180, rate:20, color:"#004d40", size:0.52 }, { name:"Caçador Deuses", dmg:400,range:200, rate:18, color:"#1a237e", size:0.56 }, { name:"Semideus", dmg:980,range:225, rate:16, color:"#311b92", size:0.60 }, { name:"Divindade", dmg:2450,range:250,rate:14, color:"#ffd700", size:0.64 }, { name:"Titã", dmg:6100,range:280,rate:12, color:"#ff6f00", size:0.68 }, { name:"Mito", dmg:15200,range:310,rate:10,color:"#ff1744", size:0.72 } ] },
-  ice: { ico: "❄️", name: "Caçador", color: "#81d4fa", tagline: "Gelo. Abranda todos.", special: "slow", slow: 0.5, unlockAsc: 0, levels: [ { name:"Caçador", dmg:11, range:120, rate:36, color:"#4fc3f7", size:0.40 }, { name:"Congelador", dmg:30, range:135, rate:33, color:"#29b6f6", size:0.46 }, { name:"Era Glacial", dmg:75, range:155, rate:30, color:"#0288d1", size:0.52 }, { name:"Inverno Eterno", dmg:190, range:170, rate:28, color:"#01579b", size:0.56 }, { name:"Zero Absoluto", dmg:470, range:190, rate:26, color:"#0d47a1", size:0.60 }, { name:"Era Gelo", dmg:1150,range:210, rate:24, color:"#000051", size:0.64 }, { name:"Glaciação", dmg:2900,range:235, rate:22, color:"#00b8d4", size:0.68 }, { name:"Fim Tempos", dmg:7200,range:260, rate:20, color:"#00e5ff", size:0.72 } ] },
-  splash: { ico: "💣", name: "Bombardeiro", color: "#ff9800", tagline: "Explosão em área.", special: "splash", splash: 65, unlockAsc: 0, levels: [ { name:"Bombardeiro", dmg:22, range:110, rate:60, color:"#f57c00", size:0.42 }, { name:"Artilharia", dmg:60, range:125, rate:55, color:"#e65100", size:0.48 }, { name:"Cataclismo", dmg:150,range:145, rate:50, color:"#bf360c", size:0.55 }, { name:"Meteoro", dmg:370,range:165, rate:45, color:"#8d2f00", size:0.58 }, { name:"Apocalipse", dmg:900,range:185, rate:42, color:"#4a1500", size:0.62 }, { name:"Extinção", dmg:2200,range:205,rate:38, color:"#ff3d00", size:0.66 }, { name:"Big Bang", dmg:5400,range:230,rate:35, color:"#ff9100", size:0.70 }, { name:"Juízo Final", dmg:13500,range:255,rate:32,color:"#ffea00", size:0.74 } ] },
-  chain: { ico: "⚡", name: "Eletricista", color: "#ffd700", tagline: "Salta entre inimigos.", special: "chain", chain: 4, unlockAsc: 0, levels: [ { name:"Eletricista", dmg:20, range:130, rate:40, color:"#ffb300", size:0.40 }, { name:"Tempestade", dmg:52, range:150, rate:36, color:"#ff8f00", size:0.46 }, { name:"Fúria Deuses", dmg:140,range:175, rate:32, color:"#e65100", size:0.52 }, { name:"Trovão", dmg:340,range:195, rate:30, color:"#ff6f00", size:0.56 }, { name:"Relâmpago Eterno", dmg:850,range:215, rate:28, color:"#ffca28", size:0.60 }, { name:"Tempestade Cósmica",dmg:2100,range:240,rate:26,color:"#ffee58", size:0.64 }, { name:"Fúria Celestial", dmg:5200,range:265, rate:24, color:"#fff59d", size:0.68 }, { name:"Deus Trovão", dmg:12500,range:290,rate:22,color:"#ffff00", size:0.72 } ] },
-  poison: { ico: "☠️", name: "Alquimista", color: "#9ccc65", tagline: "Veneno contínuo.", special: "poison", poisonDmg: 6, unlockAsc: 0, levels: [ { name:"Alquimista", dmg:14, range:115, rate:34, color:"#7cb342", size:0.40 }, { name:"Envenenador", dmg:32, range:130, rate:32, color:"#689f38", size:0.46 }, { name:"Apocalipse", dmg:85, range:150, rate:28, color:"#33691e", size:0.52 }, { name:"Praga", dmg:210,range:170, rate:26, color:"#1b5e20", size:0.56 }, { name:"Peste Negra", dmg:530,range:190, rate:24, color:"#004d40", size:0.60 }, { name:"Toxina Final",dmg:1350,range:210,rate:22, color:"#66bb6a", size:0.64 }, { name:"Pandemia", dmg:3400,range:235,rate:20, color:"#00e676", size:0.68 }, { name:"Fim Vida", dmg:8200,range:260,rate:18, color:"#b2ff59", size:0.72 } ] },
-  fire: { ico: "🔥", name: "Piromante", color: "#ff5722", tagline: "Fogo em área. Queima.", special: "fire", unlockAsc: 5, levels: [ { name:"Piromante", dmg:24, range:120, rate:42, color:"#ff5722", size:0.42 }, { name:"Mago Fogo", dmg:58, range:135, rate:40, color:"#e64a19", size:0.48 }, { name:"Senhor Chamas", dmg:145,range:155,rate:36,color:"#bf360c", size:0.54 }, { name:"Inferno", dmg:360,range:175, rate:32, color:"#8d2f00", size:0.58 }, { name:"Fogueira Eterna",dmg:880,range:195,rate:28,color:"#ff3d00", size:0.62 }, { name:"Apocalipse Ígneo",dmg:2200,range:215,rate:26,color:"#ff6e40", size:0.66 }, { name:"Sol Vivo", dmg:5400,range:240, rate:24, color:"#ff9100", size:0.70 }, { name:"Estrela", dmg:13500,range:265,rate:22,color:"#ffea00", size:0.74 } ] },
-  necro: { ico: "💀", name: "Necromante", color: "#b39ddb", tagline: "Invoca esqueletos.", special: "necro", unlockAsc: 9, levels: [ { name:"Necromante", dmg:16, range:115, rate:48, color:"#7e57c2", size:0.42 }, { name:"Invocador", dmg:42, range:130, rate:44, color:"#5e35b1", size:0.48 }, { name:"Senhor Mortos", dmg:105,range:150,rate:40,color:"#4527a0", size:0.54 }, { name:"Ceifador", dmg:270,range:170, rate:36, color:"#311b92", size:0.58 }, { name:"Mestre Almas",dmg:680,range:190,rate:32,color:"#6a1b9a", size:0.62 }, { name:"Deus Morte", dmg:1750,range:215,rate:28,color:"#8e24aa", size:0.66 }, { name:"Ceifador Mundos",dmg:4300,range:240,rate:26,color:"#ab47bc", size:0.70 }, { name:"Necrosupremo", dmg:11500,range:265,rate:24,color:"#ce93d8", size:0.74 } ] }
+  damage: { ico: "🎯", name: "Sniper Rail", color: "#00f0ff", tagline: "Dano cinético puro de longo alcance.", special: null, unlockAsc: 0, levels: [ { name:"Railgun Mk1", dmg:28, range:135, rate:24, color:"#00b4d8", size:0.40 }, { name:"Railgun Mk2", dmg:65, range:155, rate:22, color:"#0077b6", size:0.46 }, { name:"Railgun Elite", dmg:160,range:180, rate:20, color:"#03045e", size:0.52 }, { name:"Canhão Quantum", dmg:400,range:200, rate:18, color:"#48cae4", size:0.56 }, { name:"Feixe Hiper", dmg:980,range:225, rate:16, color:"#90e0ef", size:0.60 }, { name:"Estrela Nova", dmg:2450,range:250,rate:14, color:"#00f0ff", size:0.64 }, { name:"Singularidade", dmg:6100,range:280,rate:12, color:"#fff", size:0.68 }, { name:"Apocalipse Cyber", dmg:15200,range:310,rate:10,color:"#ff0055", size:0.72 } ] },
+  ice: { ico: "❄️", name: "Criogenia", color: "#48cae4", tagline: "Emite ondas de congelamento térmico.", special: "slow", slow: 0.5, unlockAsc: 0, levels: [ { name:"Cryo Nível 1", dmg:11, range:120, rate:36, color:"#ade8f4", size:0.40 }, { name:"Cryo Nível 2", dmg:30, range:135, rate:33, color:"#90e0ef", size:0.46 }, { name:"Cryo Avançado", dmg:75, range:155, rate:30, color:"#48cae4", size:0.52 }, { name:"Zero Convecção", dmg:190, range:170, rate:28, color:"#00b4d8", size:0.56 }, { name:"Zero Absoluto", dmg:470, range:190, rate:26, color:"#0096c7", size:0.60 }, { name:"Glaciar Líquido", dmg:1150,range:210, rate:24, color:"#0077b6", size:0.64 }, { name:"Boreal", dmg:2900,range:235, rate:22, color:"#03045e", size:0.68 }, { name:"Entropia Zero", dmg:7200,range:260, rate:20, color:"#fff", size:0.72 } ] },
+  splash: { ico: "💣", name: "Artilharia Plasma", color: "#ffb703", tagline: "Explosão de plasma de alta área.", special: "splash", splash: 65, unlockAsc: 0, levels: [ { name:"Plasma Nv.1", dmg:22, range:110, rate:60, color:"#fb8500", size:0.42 }, { name:"Plasma Nv.2", dmg:60, range:125, rate:55, color:"#fd9e02", size:0.48 }, { name:"Bombardeiro Nv3", dmg:150,range:145, rate:50, color:"#ffb703", size:0.55 }, { name:"Cluster Plasma", dmg:370,range:165, rate:45, color:"#e85d04", size:0.58 }, { name:"Incinerador", dmg:900,range:185, rate:42, color:"#dc2f02", size:0.62 }, { name:"Supernova", dmg:2200,range:205,rate:38, color:"#d00000", size:0.66 }, { name:"Cataclismo", dmg:5400,range:230,rate:35, color:"#9d0208", size:0.70 }, { name:"Juízo Final", dmg:13500,range:255,rate:32,color:"#6a040f", size:0.74 } ] },
+  chain: { ico: "⚡", name: "Tesla Grid", color: "#e0aaff", tagline: "Dispara arcos elétricos encadeados.", special: "chain", chain: 4, unlockAsc: 0, levels: [ { name:"Tesla Mk1", dmg:20, range:130, rate:40, color:"#c77dff", size:0.40 }, { name:"Tesla Mk2", dmg:52, range:150, rate:36, color:"#9d4edd", size:0.46 }, { name:"Arco Voltaico", dmg:140,range:175, rate:32, color:"#7b2cbf", size:0.52 }, { name:"Tempestade Íons", dmg:340,range:195, rate:30, color:"#5a189a", size:0.56 }, { name:"Descarga Magna", dmg:850,range:215, rate:28, color:"#e0aaff", size:0.60 }, { name:"Supercondutor", dmg:2100,range:240,rate:26,color:"#c77dff", size:0.64 }, { name:"Fúria de Zeus", dmg:5200,range:265, rate:24, color:"#9d4edd", size:0.68 }, { name:"Deus do Trovão", dmg:12500,range:290,rate:22,color:"#fff", size:0.72 } ] },
+  poison: { ico: "☠️", name: "VíRUS Corruptor", color: "#70e000", tagline: "Injeta código malicioso corrosivo contínuo.", special: "poison", poisonDmg: 6, unlockAsc: 0, levels: [ { name:"Vírus v1.0", dmg:14, range:115, rate:34, color:"#38b000", size:0.40 }, { name:"Vírus v2.0", dmg:32, range:130, rate:32, color:"#007200", size:0.46 }, { name:"Corruptor", dmg:85, range:150, rate:28, color:"#70e000", size:0.52 }, { name:"Trojan Sutil", dmg:210,range:170, rate:26, color:"#ccff33", size:0.56 }, { name:"Worm Global", dmg:530,range:190, rate:24, color:"#38b000", size:0.60 }, { name:"Ransomware", dmg:1350,range:210,rate:22, color:"#007200", size:0.64 }, { name:"Pandemia Digital", dmg:3400,range:235,rate:20, color:"#70e000", size:0.68 }, { name:"Extermínio Total", dmg:8200,range:260,rate:18, color:"#fff", size:0.72 } ] },
+  fire: { ico: "🔥", name: "Laser Térmico", color: "#ff0055", tagline: "Feixe térmico de queima contínua.", special: "fire", unlockAsc: 5, levels: [ { name:"Laser Térmico 1", dmg:24, range:120, rate:42, color:"#ff3366", size:0.42 }, { name:"Laser Térmico 2", dmg:58, range:135, rate:40, color:"#ff0055", size:0.48 }, { name:"Feixe Plasma", dmg:145,range:155,rate:36,color:"#d90429", size:0.54 }, { name:"Superaquecimento", dmg:360,range:175, rate:32, color:"#8d0801", size:0.58 }, { name:"Fornalha Estelar",dmg:880,range:195,rate:28,color:"#ff5400", size:0.62 }, { name:"Plasma Solar",dmg:2200,range:215,rate:26,color:"#ff7043", size:0.66 }, { name:"Estrela Binária", dmg:5400,range:240, rate:24, color:"#ff9e00", size:0.70 }, { name:"Big Crunch", dmg:13500,range:265,rate:22,color:"#fff", size:0.74 } ] },
+  necro: { ico: "💀", name: "Reciclador de Dados", color: "#b5179e", tagline: "Reanima restos de unidades abatidas.", special: "necro", unlockAsc: 9, levels: [ { name:"Reciclador Nv1", dmg:16, range:115, rate:48, color:"#7209b7", size:0.42 }, { name:"Reciclador Nv2", dmg:42, range:130, rate:44, color:"#560bad", size:0.48 }, { name:"Reanimador", dmg:105,range:150,rate:40,color:"#480ca8", size:0.54 }, { name:"Espectro Byte", dmg:270,range:170, rate:36, color:"#3a0ca3", size:0.58 }, { name:"Mestre Ghost",dmg:680,range:190,rate:32,color:"#7209b7", size:0.62 }, { name:"Deus do Sistema", dmg:1750,range:215,rate:28,color:"#b5179e", size:0.66 }, { name:"Ceifador Net",dmg:4300,range:240,rate:26,color:"#f72585", size:0.70 }, { name:"Supremo Void", dmg:11500,range:265,rate:24,color:"#fff", size:0.74 } ] }
 };
 
 const UPGRADE_COSTS = [0, 80, 150, 280, 550, 1100, 2200, 4400, 8800];
 const ASCENSION_BONUSES = [
-  { lvl:1, ico:"🏰", desc:"+1 slot de torre máximo" }, { lvl:2, ico:"🪙", desc:"+15% ouro ganho" },
-  { lvl:3, ico:"🏰", desc:"+1 slot de torre máximo" }, { lvl:4, ico:"⚔️", desc:"Arqueiro base +20% dano" },
-  { lvl:5, ico:"🔥", desc:"Novo ramo: Piromante" }, { lvl:6, ico:"🏰", desc:"+1 slot de torre máximo" },
-  { lvl:7, ico:"💀", desc:"Inimigos -5% HP" }, { lvl:8, ico:"⚡", desc:"+25% dano crítico" },
-  { lvl:9, ico:"💀", desc:"Novo ramo: Necromante" }, { lvl:10,ico:"🎁", desc:"Todos os ramos desde Nv.1" }
+  { lvl:1, ico:"🏰", desc:"+2 slots de módulos máximos" }, { lvl:2, ico:"🪙", desc:"+15% créditos ganhos" },
+  { lvl:3, ico:"🏰", desc:"+2 slots de módulos máximos" }, { lvl:4, ico:"⚔️", desc:"Emissor base +20% dano" },
+  { lvl:5, ico:"🔥", desc:"Novo módulo: Laser Térmico" }, { lvl:6, ico:"🏰", desc:"+2 slots de módulos máximos" },
+  { lvl:7, ico:"💀", desc:"Inimigos -5% Integridade HP" }, { lvl:8, ico:"⚡", desc:"+25% dano crítico" },
+  { lvl:9, ico:"💀", desc:"Novo módulo: Reciclador de Dados" }, { lvl:10,ico:"🎁", desc:"Todos os módulos desde Nv.1" }
 ];
 
 const ENEMY_TYPES = {
-  goblin: { name:"Goblin", hp:3,  gold:5,  color:"#7cb342", speed:0.85, radius:10 },
-  orc:    { name:"Orc",    hp:11, gold:9,  color:"#8d6e63", speed:0.68, radius:12 },
-  swift:  { name:"Veloz",  hp:6,  gold:7,  color:"#ffb74d", speed:1.30, radius:9  },
-  tank:   { name:"Tanque", hp:28, gold:15, color:"#b0bec5", speed:0.50, radius:14 },
-  boss:   { name:"Chefe",  hp:95, gold:40, color:"#e53935", speed:0.55, radius:18, lives:5 }
+  goblin: { name:"Drone Bug", hp:3,  gold:5,  color:"#70e000", speed:0.85, radius:10, shape:"circle" },
+  orc:    { name:"Mech Pesado", hp:11, gold:9,  color:"#ffb703", speed:0.68, radius:12, shape:"hex" },
+  swift:  { name:"Speeder",  hp:6,  gold:7,  color:"#00f0ff", speed:1.30, radius:9,  shape: "triangle" },
+  tank:   { name:"Juggernaut", hp:28, gold:15, color:"#ff0055", speed:0.50, radius:14, shape: "square" },
+  boss:   { name:"Boss Core",  hp:95, gold:40, color:"#9d4edd", speed:0.55, radius:18, shape: "star", lives:5 }
 };
 
 const TALENTS = [
-  { id:"force",    ico:"⚔️", name:"Força",      desc:"+10% dano por nível", max:5, cost:n=>10+n*5 },
-  { id:"greed",    ico:"🪙", name:"Ganância",   desc:"+15% ouro por nível", max:5, cost:n=>8+n*5 },
-  { id:"vital",    ico:"❤️", name:"Vitalidade", desc:"+2 vidas iniciais por nível", max:5, cost:n=>8+n*5 },
-  { id:"precision",ico:"🎯", name:"Precisão",   desc:"+5% alcance por nível", max:5, cost:n=>10+n*5 },
-  { id:"speed",    ico:"⏱️", name:"Celeridade", desc:"+8% cadência por nível", max:5, cost:n=>12+n*6 },
-  { id:"heritage", ico:"💰", name:"Herança",    desc:"+30 ouro inicial por nível", max:3, cost:n=>15+n*8 }
+  { id:"force",    ico:"⚔️", name:"Potência",      desc:"+10% dano por nível", max:5, cost:n=>10+n*5 },
+  { id:"greed",    ico:"🪙", name:"Otimização",   desc:"+15% créditos por nível", max:5, cost:n=>8+n*5 },
+  { id:"vital",    ico:"❤️", name:"Integridade",  desc:"+2 vidas iniciais por nível", max:5, cost:n=>8+n*5 },
+  { id:"precision",ico:"🎯", name:"Alcance Radar",desc:"+5% alcance por nível", max:5, cost:n=>10+n*5 },
+  { id:"speed",    ico:"⏱️", name:"Clock CPU",    desc:"+8% cadência por nível", max:5, cost:n=>12+n*6 },
+  { id:"heritage", ico:"💰", name:"Cache Inicial",desc:"+30 créditos por nível", max:3, cost:n=>15+n*8 }
 ];
 
 function defaultPersistent() {
@@ -345,8 +345,8 @@ let selectedTower = null;
 let towers = [], enemies = [], projectiles = [], particles = [], floats = [], skeletons = [];
 let spawnQueue = [], spawnTimer = 0;
 let gridCols = 11, gridRows = 15, offX = 0, offY = 0;
-let grid = []; // Matriz [r][c] = { walkable, tower, x, y }
-let currentPath = []; // Array de {x, y} em pixéis para os inimigos seguirem
+let grid = []; 
+let currentPath = []; 
 let startCell = { r: 0, c: 5 };
 let endCell = { r: 14, c: 5 };
 
@@ -364,8 +364,8 @@ function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c => ({"&":"&amp;",
 
 let infoTimer = 0;
 function showInfo(msg){ infoEl.textContent = msg; infoEl.classList.add("show"); clearTimeout(infoTimer); infoTimer = setTimeout(()=>infoEl.classList.remove("show"), 1600); }
-function burst(x,y,color,n){ for(let i=0;i<n;i++){ const a=Math.random()*Math.PI*2, s=rand(1.2,3); particles.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,life:1,decay:rand(0.03,0.06),color,size:rand(2,3)}); } }
-function floatText(x,y,txt,color){ floats.push({x,y,txt,color,life:1,vy:-0.8}); }
+function burst(x,y,color,n){ for(let i=0;i<n;i++){ const a=Math.random()*Math.PI*2, s=rand(1.5,4); particles.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,life:1,decay:rand(0.025,0.055),color,size:rand(2,4),glow:true}); } }
+function floatText(x,y,txt,color){ floats.push({x,y,txt,color,life:1,vy:-0.9}); }
 
 function talentLvl(id){ return persistent.talents[id] || 0; }
 function ascLevel(){ return persistent.ascensionLevel || 0; }
@@ -401,7 +401,6 @@ function towerStats(t){
 function towerUpgradeCost(t){ return t.level >= 10 ? Infinity : (UPGRADE_COSTS[t.level] || 100000); }
 function towerSellValue(t){ let total = BASE_TOWER.cost; for (let i=1; i<t.level; i++) total += UPGRADE_COSTS[i] || 0; return Math.floor(total * 0.75); }
 
-// --- MOTOR DE LABIRINTO & PATHFINDING (BFS) ---
 function initGrid(w, h) {
   const marginX = 10, marginY = 10;
   gridCols = Math.max(7, Math.floor((w - marginX * 2) / TILE));
@@ -428,7 +427,6 @@ function initGrid(w, h) {
     }
   }
 
-  // Restaurar torres anteriores se possível
   existingTowers.forEach(t => {
     if (t.r >= 0 && t.r < gridRows && t.c >= 0 && t.c < gridCols) {
       if ((t.r !== startCell.r || t.c !== startCell.c) && (t.r !== endCell.r || t.c !== endCell.c)) {
@@ -446,7 +444,7 @@ function initGrid(w, h) {
 
 function recalculatePath() {
   const queue = [];
-  const visited = Array.from({ length: gridRows }, () => Array(gridCols).false || Array(gridCols).fill(false));
+  const visited = Array.from({ length: gridRows }, () => Array(gridCols).fill(false));
   const parent = Array.from({ length: gridRows }, () => Array(gridCols).fill(null));
 
   const startR = startCell.r, startC = startCell.c;
@@ -472,7 +470,6 @@ function recalculatePath() {
 
       if (nr >= 0 && nr < gridRows && nc >= 0 && nc < gridCols) {
         if (!visited[nr][nc]) {
-          // Célula é válida se não tiver torre (exceto se for o destino final)
           const isDest = (nr === endR && nc === endC);
           const hasTower = grid[nr][nc].tower !== null;
           if (!hasTower || isDest) {
@@ -490,7 +487,6 @@ function recalculatePath() {
     return false;
   }
 
-  // Reconstruir caminho em pixéis
   let pathCells = [];
   let curr = { r: endR, c: endC };
   while (curr) {
@@ -521,7 +517,6 @@ function resizeCanvas(){
   initGrid(w, h);
 }
 
-// --- INTERAÇÃO E CONSTRUÇÃO ---
 function showBuildMenu(cell){
   if (cell.tower !== null || (cell.r === startCell.r && cell.c === startCell.c) || (cell.r === endCell.r && cell.c === endCell.c)) return;
   
@@ -531,7 +526,7 @@ function showBuildMenu(cell){
   
   const btn = document.createElement("button");
   btn.className = "build-item" + (gold < BASE_TOWER.cost ? " disabled" : "");
-  btn.innerHTML = '<div class="bico">🏹</div><div class="binfo"><div class="bnm">Arqueiro</div><div class="bdesc">Modifica o labirinto (7 ramos)</div></div><div class="bcost">' + BASE_TOWER.cost + '🪙</div>';
+  btn.innerHTML = '<div class="bico">💠</div><div class="binfo"><div class="bnm">Emissor Base</div><div class="bdesc">Reconfigura a matriz (7 ramos)</div></div><div class="bcost">' + BASE_TOWER.cost + '🪙</div>';
   
   let clickLocked = true;
   setTimeout(() => { clickLocked = false; }, 250);
@@ -548,8 +543,8 @@ function showBuildMenu(cell){
   
   if (towers.length >= maxTowers()) {
     const warn = document.createElement("div");
-    warn.style.cssText = "padding:10px;background:rgba(255,82,82,0.15);border-radius:8px;font-size:12px;color:#ff5252;text-align:center;margin-top:8px;";
-    warn.textContent = "🚫 Limite de " + maxTowers() + " torres atingido"; 
+    warn.style.cssText = "padding:10px;background:rgba(255,0,85,0.15);border:1px solid rgba(255,0,85,0.4);border-radius:8px;font-size:12px;color:#ff0055;text-align:center;margin-top:8px;";
+    warn.textContent = "🚫 Limite de " + maxTowers() + " módulos atingido"; 
     buildList.appendChild(warn);
   }
 }
@@ -561,17 +556,16 @@ function hideBuildMenu(){
 buildClose.addEventListener("click", hideBuildMenu); buildCancel.addEventListener("click", hideBuildMenu);
 
 function buildTower(cell){
-  if (gold < BASE_TOWER.cost) { showInfo("🪙 Ouro insuficiente"); return; }
+  if (gold < BASE_TOWER.cost) { showInfo("🪙 Créditos insuficientes"); return; }
   if (cell.tower !== null) return;
-  if (towers.length >= maxTowers()) { showInfo("🚫 Limite de torres"); return; }
+  if (towers.length >= maxTowers()) { showInfo("🚫 Limite de módulos"); return; }
 
-  // Testar se bloquear a célula corta o caminho
   cell.tower = { placeholder: true };
   const canPass = recalculatePath();
   cell.tower = null;
 
   if (!canPass) {
-    showInfo("🚫 Caminho bloqueado!");
+    showInfo("🚫 Rota bloqueada!");
     return;
   }
 
@@ -581,7 +575,7 @@ function buildTower(cell){
   towers.push(t); 
   towersBuiltThisRun++; 
   recalculatePath();
-  hudDirty = true; vibrate(15); burst(t.x, t.y, BASE_TOWER.levels[0].color, 8); 
+  hudDirty = true; vibrate(15); burst(t.x, t.y, BASE_TOWER.levels[0].color, 10); 
   forceSave();
 }
 
@@ -592,10 +586,10 @@ function upgradeTower(t){
     pendingBranchTower = t; showBranchChoice(); return;
   }
   const cost = towerUpgradeCost(t);
-  if (gold < cost) { showInfo("🪙 Ouro insuficiente"); return; }
+  if (gold < cost) { showInfo("🪙 Créditos insuficientes"); return; }
   gold -= cost; t.level++;
   const data = getTowerLevelData(t);
-  hudDirty = true; vibrate(15); burst(t.x, t.y, data.color, 12); floatText(t.x, t.y-22, data.name, "#ffd700"); refreshPopup(); updateStartBtn(); 
+  hudDirty = true; vibrate(15); burst(t.x, t.y, data.color, 14); floatText(t.x, t.y-22, data.name, "#ffb703"); refreshPopup(); updateStartBtn(); 
   forceSave();
 }
 
@@ -606,12 +600,12 @@ function showBranchChoice(){
     if (b.unlockAsc > ascLevel()) return;
     const lvl3 = b.levels[0];
     const div = document.createElement("div"); div.className = "build-item";
-    div.innerHTML = '<div class="bico">' + b.ico + '</div><div class="binfo"><div class="bnm" style="color:' + lvl3.color + '">' + lvl3.name + '</div><div class="bdesc">' + b.tagline + '</div><div class="bdesc" style="color:#ffd700;margin-top:2px;">Dano ' + lvl3.dmg + ' · Alcance ' + lvl3.range + '</div></div>';
+    div.innerHTML = '<div class="bico">' + b.ico + '</div><div class="binfo"><div class="bnm" style="color:' + lvl3.color + '">' + lvl3.name + '</div><div class="bdesc">' + b.tagline + '</div><div class="bdesc" style="color:#ffb703;margin-top:2px;">Dano ' + lvl3.dmg + ' · Alcance ' + lvl3.range + '</div></div>';
     div.addEventListener("click", () => {
-      if (gold < UPGRADE_COSTS[2]) { showInfo("🪙 Ouro insuficiente"); return; }
+      if (gold < UPGRADE_COSTS[2]) { showInfo("🪙 Créditos insuficientes"); return; }
       gold -= UPGRADE_COSTS[2]; pendingBranchTower.branch = key; pendingBranchTower.level = 3;
       const t = pendingBranchTower;
-      hudDirty = true; vibrate(20); burst(t.x, t.y, lvl3.color, 16); floatText(t.x, t.y-22, lvl3.name, "#ffd700");
+      hudDirty = true; vibrate(20); burst(t.x, t.y, lvl3.color, 18); floatText(t.x, t.y-22, lvl3.name, "#ffb703");
       branchScreen.classList.remove("show"); pendingBranchTower = null; refreshPopup(); updateStartBtn(); forceSave();
     });
     branchList.appendChild(div);
@@ -626,14 +620,14 @@ function sellTower(t){
   if (t.slot) t.slot.tower = null; 
   towers = towers.filter(x => x !== t);
   recalculatePath();
-  selectedTower = null; hidePopup(); hudDirty = true; updateStartBtn(); burst(t.x, t.y, "#ffd700", 10); floatText(t.x, t.y-16, "+" + val, "#ffd700"); 
+  selectedTower = null; hidePopup(); hudDirty = true; updateStartBtn(); burst(t.x, t.y, "#ffb703", 12); floatText(t.x, t.y-16, "+" + val, "#ffb703"); 
   forceSave();
 }
 
 function showPopup(t){selectedTower=t;paused=true;popup.classList.add("show");refreshPopup();}
 function hidePopup(){
   popup.classList.remove("show");selectedTower=null;pendingSaleId=null;
-  sellBtn.classList.remove("confirm");sellBtn.innerHTML='Vender<small id="sellVal">0</small>';
+  sellBtn.classList.remove("confirm");sellBtn.innerHTML='Reciclar<small id="sellVal">0</small>';
   if(!buildMenu.classList.contains("show")&&!branchScreen.classList.contains("show")&&!talentScreen.classList.contains("show")){paused=false;lastTime=0;}
 }
 
@@ -647,11 +641,10 @@ function refreshPopup(){
   popStars.innerHTML = starsHtml;
   const upCost = towerUpgradeCost(t), sv = towerSellValue(t);
   if (t.level >= 10) { upgBtn.disabled = true; upgCost.textContent = "MAX"; }
-  else { upgBtn.disabled = gold < upCost; upgBtn.innerHTML = ((t.level === 2 && !t.branch) ? "Escolher ramo" : "Melhorar") + '<small id="upgCost">🪙 ' + upCost + '</small>'; }
-  sellBtn.disabled = false; sellBtn.classList.remove("confirm"); sellBtn.innerHTML = 'Vender<small id="sellVal">🪙 ' + sv + '</small>'; pendingSaleId = null;
+  else { upgBtn.disabled = gold < upCost; upgBtn.innerHTML = ((t.level === 2 && !t.branch) ? "Especializar" : "Upgrade") + '<small id="upgCost">🪙 ' + upCost + '</small>'; }
+  sellBtn.disabled = false; sellBtn.classList.remove("confirm"); sellBtn.innerHTML = 'Reciclar<small id="sellVal">🪙 ' + sv + '</small>'; pendingSaleId = null;
 }
 
-// --- GESTÃO DE INIMIGOS E CAMINHO ---
 function spawnEnemy(type, waveNum, worldNum){
   const base = ENEMY_TYPES[type]; if (!base) return;
   if (currentPath.length === 0) return;
@@ -674,7 +667,7 @@ function spawnEnemy(type, waveNum, worldNum){
   enemies.push({ 
     type, hp, maxHp: hp, 
     gold: Math.ceil(base.gold * (1 + (worldNum-1)*0.15)), 
-    speed, radius: base.radius, color: base.color, 
+    speed, radius: base.radius, color: base.color, shape: base.shape,
     x: currentPath[0].x, y: currentPath[0].y, 
     pathIndex: 0, 
     slow: 0, poison: 0, poisonDmg: 0, alive: true, hitFlash: 0, shield, shieldMax: shield, regen 
@@ -683,7 +676,7 @@ function spawnEnemy(type, waveNum, worldNum){
 
 function startWave(){
   if (running || paused || gameOverFlag) return;
-  if (currentPath.length === 0) { showInfo("⚠️ Labirinto bloqueado!"); return; }
+  if (currentPath.length === 0) { showInfo("⚠️ Rota bloqueada!"); return; }
   
   forceSave();
   running = true; paused = false; spawnQueue = []; spawnTimer = 0;
@@ -703,28 +696,28 @@ function startWave(){
   }
   if (isBoss) spawnQueue.push({ type: "boss", delay: 25 });
   waveTotalCount = spawnQueue.length; startBtn.disabled = true; updateStartBtn();
-  if (wave % 5 === 0) showInfo("👑 BOSS · Vaga " + wave);
-  else showInfo("⚔️ Vaga " + wave);
+  if (wave % 5 === 0) showInfo("👑 BOSS CORE · Sector " + wave);
+  else showInfo("⚡ Sector " + wave + " Iniciado");
   forceSave();
 }
 
 function hitEnemy(e, dmg){
   if (!e.alive) return;
-  if (critMultiplier() > 1 && Math.random() < 0.15) { dmg *= critMultiplier(); floatText(e.x, e.y - e.radius - 8, "CRIT!", "#ffd700"); }
+  if (critMultiplier() > 1 && Math.random() < 0.15) { dmg *= critMultiplier(); floatText(e.x, e.y - e.radius - 8, "CRIT!", "#ffb703"); }
   if (e.shield > 0) { e.shield -= dmg; if (e.shield < 0) { e.hp += e.shield; e.shield = 0; } } else { e.hp -= dmg; }
-  e.hitFlash = 2; if (e.hp <= 0) killEnemy(e);
+  e.hitFlash = 3; if (e.hp <= 0) killEnemy(e);
 }
 
 function killEnemy(e){
   if (!e.alive) return; e.alive = false; enemies = enemies.filter(x => x !== e);
   let g = Math.round(e.gold * goldMul()); if (wave > 30) g = Math.round(g * 0.65); g = Math.round(g * ascGoldFactor());
-  gold += g; score += g; killsThisRun++; hudDirty = true; burst(e.x, e.y, e.color, 4);
-  if (e.type === "boss") { persistent.essence += 1; saveProgress(false); showInfo("👑 Boss! +1 💎"); }
+  gold += g; score += g; killsThisRun++; hudDirty = true; burst(e.x, e.y, e.color, 6);
+  if (e.type === "boss") { persistent.essence += 1; saveProgress(false); showInfo("👑 Boss Destruído! +1 💎"); }
 }
 
 function damageBase(e){
   if (!e.alive) return; lives -= (e.type === "boss" ? (wave <= 5 ? 2 : 4) : 1); vibrate(40);
-  e.alive = false; enemies = enemies.filter(x => x !== e); hudDirty = true; burst(e.x, e.y, "#ff5252", 10); if (lives <= 0) endGame();
+  e.alive = false; enemies = enemies.filter(x => x !== e); hudDirty = true; burst(e.x, e.y, "#ff0055", 12); if (lives <= 0) endGame();
 }
 
 function fireProjectile(t, target){
@@ -736,17 +729,17 @@ function hitProjectile(p){
   if (p.hit) return; p.hit = true; const tgt = p.target; if (!tgt || !tgt.alive) return;
   const isBoss = tgt.type === "boss"; if (p.special === "chain" && isBoss) p.dmg *= 1.8;
 
-  if (p.special === "splash") { enemies.forEach(e => { if (e.alive && dist(e, tgt) <= p.splash) hitEnemy(e, p.dmg); }); burst(tgt.x, tgt.y, p.color, 8); }
+  if (p.special === "splash") { enemies.forEach(e => { if (e.alive && dist(e, tgt) <= p.splash) hitEnemy(e, p.dmg); }); burst(tgt.x, tgt.y, p.color, 10); }
   else if (p.special === "chain") {
-    hitEnemy(tgt, p.dmg); if (isBoss) floatText(tgt.x, tgt.y - tgt.radius - 10, Math.round(p.dmg), "#ffd700");
+    hitEnemy(tgt, p.dmg); if (isBoss) floatText(tgt.x, tgt.y - tgt.radius - 10, Math.round(p.dmg), "#ffb703");
     let last = tgt, chained = [tgt];
-    for (let i=0;i<p.chain-1;i++){ let next = null, bestD = 70; enemies.forEach(e => { if (!e.alive || chained.includes(e)) return; const d = dist(e, last); if (d < bestD) { bestD = d; next = e; } }); if (!next) break; hitEnemy(next, p.dmg * 0.7); chained.push(next); last = next; }
-    burst(tgt.x, tgt.y, p.color, 5);
-  } else if (p.special === "slow") { hitEnemy(tgt, p.dmg); if (tgt.alive) tgt.slow = Math.max(tgt.slow, 90); burst(tgt.x, tgt.y, p.color, 3); }
-  else if (p.special === "poison") { hitEnemy(tgt, p.dmg); if (tgt.alive) { tgt.poison = 90; tgt.poisonDmg = p.poisonDmg; } burst(tgt.x, tgt.y, p.color, 3); }
-  else if (p.special === "fire") { enemies.forEach(e => { if (e.alive && dist(e, tgt) <= 55) { hitEnemy(e, p.dmg); if (e.alive) { e.poison = 60; e.poisonDmg = p.dmg * 0.15; } } }); burst(tgt.x, tgt.y, "#ff5722", 10); }
-  else if (p.special === "necro") { hitEnemy(tgt, p.dmg); if (Math.random() < 0.3) skeletons.push({ x: tgt.x + rand(-20, 20), y: tgt.y + rand(-20, 20), target: null, cooldown: 0, life: 300 }); burst(tgt.x, tgt.y, "#b39ddb", 6); }
-  else { hitEnemy(tgt, p.dmg); if (isBoss) floatText(tgt.x, tgt.y - tgt.radius - 10, Math.round(p.dmg), "#e8ecf5"); burst(tgt.x, tgt.y, p.color, 2); }
+    for (let i=0;i<p.chain-1;i++){ let next = null, bestD = 75; enemies.forEach(e => { if (!e.alive || chained.includes(e)) return; const d = dist(e, last); if (d < bestD) { bestD = d; next = e; } }); if (!next) break; hitEnemy(next, p.dmg * 0.7); chained.push(next); last = next; }
+    burst(tgt.x, tgt.y, p.color, 6);
+  } else if (p.special === "slow") { hitEnemy(tgt, p.dmg); if (tgt.alive) tgt.slow = Math.max(tgt.slow, 90); burst(tgt.x, tgt.y, p.color, 4); }
+  else if (p.special === "poison") { hitEnemy(tgt, p.dmg); if (tgt.alive) { tgt.poison = 90; tgt.poisonDmg = p.poisonDmg; } burst(tgt.x, tgt.y, p.color, 4); }
+  else if (p.special === "fire") { enemies.forEach(e => { if (e.alive && dist(e, tgt) <= 55) { hitEnemy(e, p.dmg); if (e.alive) { e.poison = 60; e.poisonDmg = p.dmg * 0.15; } } }); burst(tgt.x, tgt.y, "#ff0055", 12); }
+  else if (p.special === "necro") { hitEnemy(tgt, p.dmg); if (Math.random() < 0.3) skeletons.push({ x: tgt.x + rand(-20, 20), y: tgt.y + rand(-20, 20), target: null, cooldown: 0, life: 300 }); burst(tgt.x, tgt.y, "#b5179e", 8); }
+  else { hitEnemy(tgt, p.dmg); if (isBoss) floatText(tgt.x, tgt.y - tgt.radius - 10, Math.round(p.dmg), "#00f0ff"); burst(tgt.x, tgt.y, p.color, 3); }
 }
 
 function update(){
@@ -761,17 +754,16 @@ function update(){
     const prevBest = persistent.bestWave; if (wave > persistent.bestWave) persistent.bestWave = wave; const isNewRecord = wave > prevBest;
     
     if (wave % 5 === 0) { 
-      persistent.essence += 1; world++; const wname = (WORLDS[(world-1)%WORLDS.length]?.name) || "Extra"; showInfo("🌍 Mundo " + world + ": " + wname + "!"); 
+      persistent.essence += 1; world++; const wname = (WORLDS[(world-1)%WORLDS.length]?.name) || "Extra"; showInfo("🌐 Sector " + world + ": " + wname + "!"); 
     } else if (isNewRecord && prevBest > 0) {
-      showInfo("🏆 NOVO RECORDE! Vaga " + wave);
+      showInfo("🏆 NOVO RECORDE! Sector " + wave);
     } else {
-      showInfo("✅ Vaga concluída! +" + bonus + " 🪙");
+      showInfo("✅ Sector limpo! +" + bonus + " 🪙");
     }
     
     wave++; hudDirty = true; vibrate(25); startBtn.disabled = false; updateStartBtn(); forceSave(); return;
   }
 
-  // Atualizar movimento dos inimigos ao longo do array currentPath
   for (let i = enemies.length - 1; i >= 0; i--) {
     const e = enemies[i]; if (!e.alive) continue;
     if (e.hitFlash > 0) e.hitFlash--;
@@ -829,95 +821,158 @@ function update(){
 function drawTower(ctx, t){
   const st = towerStats(t); const size = TILE * st.size; const angle = t.angle || 0;
   ctx.save(); ctx.translate(t.x, t.y);
-  if (t.level >= 5) { const auraStrength = Math.min(1, (t.level - 4) / 6); const pulse = 0.5 + 0.5 * Math.sin(performance.now() / 300); ctx.beginPath(); ctx.arc(0, 0, size + 6 + t.level, 0, Math.PI*2); ctx.fillStyle = "rgba(255,215,0," + (0.1 + pulse*0.1*auraStrength) + ")"; ctx.fill(); }
-  if (t.level >= 3) { const ringColors = ["#cd7f32", "#c0c0c0", "#ffd700", "#ff6f00", "#ff1744", "#ff1744", "#ff1744", "#ff1744"]; ctx.beginPath(); ctx.arc(0, 0, size + 2 + Math.min(t.level-3, 3), 0, Math.PI*2); ctx.strokeStyle = ringColors[Math.min(t.level-3, 7)]; ctx.lineWidth = 2 + Math.min(t.level-3, 3)*0.5; ctx.stroke(); }
-  ctx.beginPath(); ctx.arc(0, 0, size, 0, Math.PI*2); ctx.fillStyle = st.color; ctx.fill(); ctx.strokeStyle = "#0a1020"; ctx.lineWidth = 2.5; ctx.stroke();
-  ctx.save(); ctx.rotate(angle);
-  if (!t.branch || t.level < 3) {
-    ctx.strokeStyle = "#fff"; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(0, 0, size*0.55, -Math.PI*0.4, Math.PI*0.4); ctx.stroke();
-    const arrows = t.level >= 2 ? 2 : 1; for (let i=0;i<arrows;i++){ ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(size*0.7, (i-arrows/2+0.5)*3); ctx.strokeStyle = "#fff"; ctx.lineWidth = 1.5; ctx.stroke(); }
-  } else {
-    const heavy = t.level >= 6;
-    if (t.branch === "damage") { ctx.strokeStyle = "#fff"; ctx.lineWidth = heavy ? 3 : 2; ctx.beginPath(); ctx.arc(0, 0, size*0.4, 0, Math.PI*2); ctx.stroke(); ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(size*0.9, 0); ctx.stroke(); ctx.fillStyle = "#ffd700"; ctx.beginPath(); ctx.arc(size*0.9, 0, heavy ? 4 : 3, 0, Math.PI*2); ctx.fill(); if (heavy) { ctx.beginPath(); ctx.arc(size*0.9, 0, 7, 0, Math.PI*2); ctx.strokeStyle = "#ffd700"; ctx.lineWidth = 1; ctx.stroke(); } }
-    else if (t.branch === "ice") { ctx.strokeStyle = "#fff"; ctx.lineWidth = heavy ? 2.5 : 1.5; for (let i=0;i<6;i++){ ctx.save(); ctx.rotate(i * Math.PI/3); ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(size*0.7, 0); ctx.stroke(); if (t.level >= 4) { ctx.beginPath(); ctx.moveTo(size*0.5, 0); ctx.lineTo(size*0.65, -size*0.15); ctx.moveTo(size*0.5, 0); ctx.lineTo(size*0.65, size*0.15); ctx.stroke(); } ctx.restore(); } }
-    else if (t.branch === "splash") { ctx.fillStyle = "#333"; ctx.fillRect(size*0.15, -size*0.3, size*0.85, size*0.6); ctx.beginPath(); ctx.arc(size*0.95, 0, size*0.2, 0, Math.PI*2); ctx.fillStyle = "#1a1a1a"; ctx.fill(); if (heavy) { ctx.strokeStyle = "#ffd700"; ctx.lineWidth = 1.5; ctx.strokeRect(size*0.15, -size*0.3, size*0.85, size*0.6); } }
-    else if (t.branch === "chain") { ctx.fillStyle = heavy ? "#fff8b0" : "#fff"; ctx.beginPath(); ctx.moveTo(size*0.3, -size*0.6); ctx.lineTo(-size*0.1, 0); ctx.lineTo(size*0.15, 0); ctx.lineTo(-size*0.3, size*0.6); ctx.lineTo(0, size*0.1); ctx.lineTo(-size*0.2, size*0.1); ctx.closePath(); ctx.fill(); ctx.strokeStyle = "#333"; ctx.lineWidth = 1; ctx.stroke(); }
-    else if (t.branch === "poison") { ctx.fillStyle = "#1a1a1a"; ctx.beginPath(); ctx.arc(0, -size*0.15, size*0.35, 0, Math.PI*2); ctx.fill(); ctx.fillStyle = heavy ? "#ff5252" : "#9ccc65"; ctx.beginPath(); ctx.arc(-size*0.15, -size*0.2, size*0.08, 0, Math.PI*2); ctx.arc(size*0.15, -size*0.2, size*0.08, 0, Math.PI*2); ctx.fill(); ctx.strokeStyle = "#fff"; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(0, -size*0.05, size*0.15, 0, Math.PI); ctx.stroke(); }
-    else if (t.branch === "fire") { ctx.fillStyle = "#ff5722"; ctx.beginPath(); ctx.moveTo(0, -size*0.7); ctx.lineTo(size*0.3, 0); ctx.lineTo(size*0.15, 0); ctx.lineTo(size*0.4, size*0.5); ctx.lineTo(-size*0.1, size*0.1); ctx.lineTo(-size*0.35, size*0.6); ctx.lineTo(-size*0.15, 0); ctx.lineTo(-size*0.3, 0); ctx.closePath(); ctx.fill(); ctx.fillStyle = "#ffeb3b"; ctx.beginPath(); ctx.moveTo(0, -size*0.4); ctx.lineTo(size*0.15, 0); ctx.lineTo(-size*0.15, 0); ctx.closePath(); ctx.fill(); }
-    else if (t.branch === "necro") { ctx.fillStyle = "#1a1a1a"; ctx.beginPath(); ctx.arc(0, 0, size*0.45, 0, Math.PI*2); ctx.fill(); ctx.fillStyle = heavy ? "#e1bee7" : "#b39ddb"; ctx.beginPath(); ctx.arc(-size*0.15, -size*0.1, size*0.1, 0, Math.PI*2); ctx.arc(size*0.15, -size*0.1, size*0.1, 0, Math.PI*2); ctx.fill(); ctx.strokeStyle = "#e1bee7"; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(-size*0.2, size*0.2); ctx.lineTo(size*0.2, size*0.2); ctx.stroke(); }
+
+  // Efeito de brilho de núcleo avançado
+  if (t.level >= 5) {
+    const pulse = 0.5 + 0.5 * Math.sin(performance.now() / 250);
+    ctx.beginPath(); ctx.arc(0, 0, size + 8 + t.level*0.5, 0, Math.PI*2);
+    ctx.fillStyle = "rgba(0,240,255," + (0.08 + pulse*0.12) + ")"; ctx.fill();
   }
-  ctx.restore(); ctx.restore();
-  if (t.level > 1) { ctx.fillStyle = "#ffd700"; ctx.font = "bold 9px sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(t.level <= 5 ? "★".repeat(t.level-1) : "✦" + t.level, t.x, t.y - size - 6); }
+
+  // Base hexagonal cibernética da torre
+  ctx.beginPath();
+  for (let i = 0; i < 6; i++) {
+    const a = i * Math.PI / 3;
+    const sx = Math.cos(a) * (size + 3);
+    const sy = Math.sin(a) * (size + 3);
+    i === 0 ? ctx.moveTo(sx, sy) : ctx.lineTo(sx, sy);
+  }
+  ctx.closePath();
+  ctx.fillStyle = "#070e22"; ctx.fill();
+  ctx.strokeStyle = st.color; ctx.lineWidth = 2; ctx.shadowColor = st.color; ctx.shadowBlur = 8; ctx.stroke();
+  ctx.shadowBlur = 0;
+
+  // Núcleo central
+  ctx.beginPath(); ctx.arc(0, 0, size * 0.7, 0, Math.PI*2);
+  ctx.fillStyle = st.color; ctx.fill();
+  ctx.strokeStyle = "#03050c"; ctx.lineWidth = 2; ctx.stroke();
+
+  // Canhão / Direção
+  ctx.save(); ctx.rotate(angle);
+  ctx.fillStyle = "#fff";
+  ctx.fillRect(0, -3, size * 1.1, 6);
+  ctx.restore();
+
+  ctx.restore();
+
+  // Nível da torre em formato futurista
+  if (t.level > 1) {
+    ctx.fillStyle = "#ffb703"; ctx.font = "bold 9px monospace"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.shadowColor = "#ffb703"; ctx.shadowBlur = 4;
+    ctx.fillText(t.level <= 5 ? "★".repeat(t.level-1) : "✦" + t.level, t.x, t.y - size - 8);
+    ctx.shadowBlur = 0;
+  }
 }
 
 function render(){
   const w = cv.width / (window.devicePixelRatio || 1); const h = cv.height / (window.devicePixelRatio || 1);
-  ctx.clearRect(0, 0, w, h); const theme = WORLDS[(world - 1) % WORLDS.length];
+  ctx.clearRect(0, 0, w, h); 
+  const theme = WORLDS[(world - 1) % WORLDS.length];
   ctx.fillStyle = theme.bg; ctx.fillRect(0, 0, w, h);
 
-  // Desenhar grelha subtil e indicadores de Entrada/Saída
+  // Grelha Cibernética de Fundo
   for(let r=0; r<gridRows; r++){
     for(let c=0; c<gridCols; c++){
       const cell = grid[r][c];
-      ctx.strokeStyle = "rgba(255,255,255,0.02)";
+      ctx.strokeStyle = theme.gridColor;
       ctx.lineWidth = 1;
       ctx.strokeRect(cell.x - TILE/2, cell.y - TILE/2, TILE, TILE);
 
       if (r === startCell.r && c === startCell.c) {
-        ctx.fillStyle = "rgba(100,255,218,0.15)";
+        ctx.fillStyle = "rgba(0,240,255,0.2)";
         ctx.fillRect(cell.x - TILE/2, cell.y - TILE/2, TILE, TILE);
-        ctx.fillStyle = "#64ffda"; ctx.font = "10px sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+        ctx.fillStyle = "#00f0ff"; ctx.font = "bold 10px monospace"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+        ctx.shadowColor = "#00f0ff"; ctx.shadowBlur = 6;
         ctx.fillText("IN", cell.x, cell.y);
+        ctx.shadowBlur = 0;
       } else if (r === endCell.r && c === endCell.c) {
-        ctx.fillStyle = "rgba(255,82,82,0.15)";
+        ctx.fillStyle = "rgba(255,0,85,0.2)";
         ctx.fillRect(cell.x - TILE/2, cell.y - TILE/2, TILE, TILE);
-        ctx.fillStyle = "#ff5252"; ctx.font = "10px sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
-        ctx.fillText("🏰", cell.x, cell.y);
+        ctx.fillStyle = "#ff0055"; ctx.font = "12px monospace"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+        ctx.shadowColor = "#ff0055"; ctx.shadowBlur = 6;
+        ctx.fillText("🛡️", cell.x, cell.y);
+        ctx.shadowBlur = 0;
       } else if (cell.tower === null) {
-        ctx.fillStyle = "rgba(78,205,196,0.04)";
+        ctx.fillStyle = "rgba(0,240,255,0.02)";
         ctx.fillRect(cell.x - TILE/2 + 2, cell.y - TILE/2 + 2, TILE - 4, TILE - 4);
       }
     }
   }
 
-  // Desenhar o caminho dinâmico dos monstros
+  // Linha de Rota dos Inimigos com efeito Neon
   if (currentPath.length > 1) {
-    ctx.strokeStyle = theme.path; ctx.lineWidth = TILE * 0.55; ctx.lineCap = "round"; ctx.lineJoin = "round";
+    ctx.strokeStyle = "rgba(0,240,255,0.15)"; ctx.lineWidth = TILE * 0.6; ctx.lineCap = "round"; ctx.lineJoin = "round";
     ctx.beginPath(); currentPath.forEach((p, i) => { i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y); }); ctx.stroke();
-    ctx.strokeStyle = theme.pathDash; ctx.lineWidth = 3; ctx.setLineDash([8, 12]);
-    ctx.beginPath(); currentPath.forEach((p, i) => { i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y); }); ctx.stroke(); ctx.setLineDash([]);
+    
+    ctx.strokeStyle = "#00f0ff"; ctx.lineWidth = 2; ctx.setLineDash([6, 10]);
+    ctx.shadowColor = "#00f0ff"; ctx.shadowBlur = 8;
+    ctx.beginPath(); currentPath.forEach((p, i) => { i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y); }); ctx.stroke(); 
+    ctx.setLineDash([]); ctx.shadowBlur = 0;
   }
 
-  // Alcance da torre selecionada
+  // Alcance da torre selecionada com círculo holográfico
   if (selectedTower && selectedTower.slot && towers.includes(selectedTower)) {
     const st = towerStats(selectedTower); 
     ctx.beginPath(); ctx.arc(selectedTower.x, selectedTower.y, st.range, 0, Math.PI*2);
-    ctx.fillStyle = "rgba(78,205,196,0.06)"; ctx.fill(); 
-    ctx.strokeStyle = "rgba(78,205,196,0.45)"; ctx.lineWidth = 1.5; ctx.stroke();
+    ctx.fillStyle = "rgba(0,240,255,0.04)"; ctx.fill(); 
+    ctx.strokeStyle = "rgba(0,240,255,0.5)"; ctx.lineWidth = 1.5; ctx.setLineDash([4, 4]); ctx.stroke(); ctx.setLineDash([]);
   }
 
   towers.forEach(t => drawTower(ctx, t));
   
   skeletons.forEach(s => {
-    ctx.fillStyle = "#e1bee7"; ctx.beginPath(); ctx.arc(s.x, s.y, 6, 0, Math.PI*2); ctx.fill();
-    ctx.strokeStyle = "#7e57c2"; ctx.lineWidth = 1.5; ctx.stroke();
-    ctx.fillStyle = "#1a1a1a"; ctx.beginPath(); ctx.arc(s.x-2, s.y-1, 1.5, 0, Math.PI*2); ctx.arc(s.x+2, s.y-1, 1.5, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = "#b5179e"; ctx.beginPath(); ctx.arc(s.x, s.y, 6, 0, Math.PI*2); ctx.fill();
+    ctx.strokeStyle = "#e0aaff"; ctx.lineWidth = 1.5; ctx.shadowColor = "#b5179e"; ctx.shadowBlur = 6; ctx.stroke(); ctx.shadowBlur = 0;
   });
   
+  // Renderizar Inimigos com formas geométricas sci-fi
   enemies.forEach(e => {
     if (!e.alive) return;
-    ctx.beginPath(); ctx.arc(e.x, e.y, e.radius, 0, Math.PI*2); ctx.fillStyle = e.hitFlash > 0 ? "#fff" : e.color; ctx.fill(); ctx.strokeStyle = "#0a1020"; ctx.lineWidth = 2; ctx.stroke();
-    if (e.shield > 0) { ctx.beginPath(); ctx.arc(e.x, e.y, e.radius + 4, 0, Math.PI*2); ctx.strokeStyle = "rgba(100,200,255,0.8)"; ctx.lineWidth = 2.5; ctx.stroke(); }
-    if (e.hp < e.maxHp) { const bw = e.radius*2; ctx.fillStyle = "rgba(0,0,0,0.6)"; ctx.fillRect(e.x - bw/2, e.y - e.radius - 8, bw, 3); ctx.fillStyle = e.type === "boss" ? "#ff5252" : "#4ecdc4"; ctx.fillRect(e.x - bw/2, e.y - e.radius - 8, bw * (Math.max(0, e.hp)/e.maxHp), 3); }
-    if (e.slow > 0) { ctx.beginPath(); ctx.arc(e.x, e.y, e.radius+3, 0, Math.PI*2); ctx.strokeStyle = "rgba(129,212,250,0.6)"; ctx.lineWidth = 1.5; ctx.stroke(); }
-    if (e.poison > 0) { ctx.beginPath(); ctx.arc(e.x, e.y, e.radius+4, 0, Math.PI*2); ctx.strokeStyle = "rgba(156,204,101,0.6)"; ctx.lineWidth = 1.5; ctx.stroke(); }
-    if (e.regen > 0) { ctx.font = "10px sans-serif"; ctx.fillStyle = "#4caf50"; ctx.textAlign = "center"; ctx.fillText("+", e.x - 6, e.y - e.radius - 14); }
+    ctx.save();
+    ctx.translate(e.x, e.y);
+    
+    ctx.beginPath();
+    ctx.arc(0, 0, e.radius, 0, Math.PI * 2);
+    ctx.fillStyle = e.hitFlash > 0 ? "#fff" : e.color;
+    ctx.shadowColor = e.color; ctx.shadowBlur = 8;
+    ctx.fill();
+    ctx.strokeStyle = "#03050c"; ctx.lineWidth = 2; ctx.stroke();
+    ctx.shadowBlur = 0;
+
+    if (e.shield > 0) {
+      ctx.beginPath(); ctx.arc(0, 0, e.radius + 4, 0, Math.PI*2);
+      ctx.strokeStyle = "rgba(0,240,255,0.8)"; ctx.lineWidth = 2; ctx.stroke();
+    }
+    ctx.restore();
+
+    if (e.hp < e.maxHp) {
+      const bw = e.radius * 2;
+      ctx.fillStyle = "rgba(0,0,0,0.7)"; ctx.fillRect(e.x - bw/2, e.y - e.radius - 8, bw, 3);
+      ctx.fillStyle = e.type === "boss" ? "#ff0055" : "#00f0ff"; 
+      ctx.fillRect(e.x - bw/2, e.y - e.radius - 8, bw * (Math.max(0, e.hp)/e.maxHp), 3);
+    }
   });
   
-  projectiles.forEach(p => { ctx.beginPath(); ctx.arc(p.x, p.y, 3, 0, Math.PI*2); ctx.fillStyle = p.color; ctx.fill(); });
-  particles.forEach(p => { ctx.globalAlpha = p.life * 0.7; ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI*2); ctx.fill(); });
+  projectiles.forEach(p => { 
+    ctx.beginPath(); ctx.arc(p.x, p.y, 3.5, 0, Math.PI*2); 
+    ctx.fillStyle = p.color; ctx.shadowColor = p.color; ctx.shadowBlur = 6; ctx.fill(); ctx.shadowBlur = 0;
+  });
+
+  particles.forEach(p => { 
+    ctx.globalAlpha = p.life * 0.8; ctx.fillStyle = p.color; 
+    if (p.glow) { ctx.shadowColor = p.color; ctx.shadowBlur = 6; }
+    ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI*2); ctx.fill(); 
+    ctx.shadowBlur = 0;
+  });
   ctx.globalAlpha = 1;
-  floats.forEach(f => { ctx.globalAlpha = f.life; ctx.fillStyle = f.color; ctx.font = "bold 14px sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(f.txt, f.x, f.y); });
+
+  floats.forEach(f => { 
+    ctx.globalAlpha = f.life; ctx.fillStyle = f.color; 
+    ctx.font = "bold 13px monospace"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.shadowColor = f.color; ctx.shadowBlur = 6;
+    ctx.fillText(f.txt, f.x, f.y); 
+    ctx.shadowBlur = 0;
+  });
   ctx.globalAlpha = 1;
 }
 
@@ -934,8 +989,8 @@ function updateStartBtn(){
   const canAscend=!running && !gameOverFlag && (towers.filter(t=>t.level>=5).length>=3 || wave>=25);
   ascBtn.style.display=canAscend?"block":"none";
   const boss=wave%5===0;
-  startBtnTxt.textContent=running?"⏳ A jogar":boss?"CHEFE "+wave:"VAGA "+wave;
-  startBtnSub.textContent=running?"":boss?"👑 boss":"iniciar";
+  startBtnTxt.textContent=running?"⏳ Ativo":boss?"BOSS "+wave:"SECTOR "+wave;
+  startBtnSub.textContent=running?"":boss?"👑 core":"iniciar";
   startBtn.classList.toggle("boss",!running && boss);
   startBtn.disabled=running||gameOverFlag || currentPath.length === 0;
 }
@@ -946,10 +1001,8 @@ function canvasCoords(evt){ const r = cv.getBoundingClientRect(); const pt = evt
 cv.addEventListener("pointerdown", evt => {
   evt.preventDefault(); if (paused || gameOverFlag) return; const p = canvasCoords(evt);
   
-  // Detetar clique em torre existente
   for (let i = 0; i < towers.length; i++) { if (dist(p, towers[i]) < TILE*0.45) { showPopup(towers[i]); return; } }
   
-  // Detetar clique em célula vazia da grelha
   for (let r = 0; r < gridRows; r++) {
     for (let c = 0; c < gridCols; c++) {
       const cell = grid[r][c];
@@ -975,7 +1028,7 @@ sellBtn.addEventListener("click", () => {
   if (!selectedTower) return; const t = selectedTower;
   if (pendingSaleId === t) { pendingSaleId = null; sellTower(t); return; }
   pendingSaleId = t; sellBtn.classList.add("confirm"); sellBtn.innerHTML = 'Confirmar<small>Toca de novo</small>';
-  setTimeout(() => { if (pendingSaleId === t) { pendingSaleId = null; if (selectedTower === t) { sellBtn.classList.remove("confirm"); sellBtn.innerHTML = 'Vender<small>🪙 ' + towerSellValue(t) + '</small>'; } } }, 3000);
+  setTimeout(() => { if (pendingSaleId === t) { pendingSaleId = null; if (selectedTower === t) { sellBtn.classList.remove("confirm"); sellBtn.innerHTML = 'Reciclar<small>🪙 ' + towerSellValue(t) + '</small>'; } } }, 3000);
 });
 
 speedBtn.addEventListener("click", () => { speedMul = speedMul === 1 ? 2 : speedMul === 2 ? 3 : 1; vibrate(8); showInfo("⏩ Velocidade " + speedMul + "x"); updateHUD(); });
@@ -983,7 +1036,7 @@ speedBtn.addEventListener("click", () => { speedMul = speedMul === 1 ? 2 : speed
 function showAscendScreen(){
   ascPoints.textContent = "+" + calcAscendPoints(); ascCurrent.textContent = ascLevel();
   const nextBonus = ASCENSION_BONUSES.find(b => b.lvl === ascLevel() + 1);
-  ascNextBonus.innerHTML = nextBonus ? '<div class="ico">' + nextBonus.ico + '</div><div class="txt">' + nextBonus.desc + '</div>' : '<div class="ico">🏰</div><div class="txt">+1 slot (infinito)</div>';
+  ascNextBonus.innerHTML = nextBonus ? '<div class="ico">' + nextBonus.ico + '</div><div class="txt">' + nextBonus.desc + '</div>' : '<div class="ico">🏰</div><div class="txt">+2 slots (infinito)</div>';
   ascendScreen.classList.add("show"); paused = true; pauseBadge.classList.add("show");
 }
 
@@ -992,8 +1045,8 @@ ascConfirm.addEventListener("click", () => {
   const pts = calcAscendPoints(); persistent.ascensionLevel += pts; persistent.totalAscensions++; persistent.essence += 2; saveProgress(true);
   ascendScreen.classList.remove("show"); paused = false; pauseBadge.classList.remove("show");
   const oldLvl = ascLevel() - pts, newLvl = ascLevel(); const unlocked = [];
-  ASCENSION_BONUSES.forEach(b => { if (b.lvl > oldLvl && b.lvl <= newLvl) { if (b.ico === "🔥") unlocked.push("Piromante"); if (b.ico === "💀" && b.lvl === 9) unlocked.push("Necromante"); } });
-  showInfo(unlocked.length ? "🌟 " + unlocked.join(" + ") + " desbloqueado!" : "🌟 Ascensão! Nível " + newLvl);
+  ASCENSION_BONUSES.forEach(b => { if (b.lvl > oldLvl && b.lvl <= newLvl) { if (b.ico === "🔥") unlocked.push("Laser Térmico"); if (b.ico === "💀" && b.lvl === 9) unlocked.push("Reciclador de Dados"); } });
+  showInfo(unlocked.length ? "⚡ " + unlocked.join(" + ") + " desbloqueado!" : "⚡ Overclock Ativo! Nível " + newLvl);
   startNewGame(true);
 });
 
@@ -1005,9 +1058,9 @@ function renderTalentList(){
   TALENTS.forEach(tal => {
     const lvl = talentLvl(tal.id), cost = tal.cost(lvl), maxed = lvl >= tal.max, canBuy = !maxed && persistent.essence >= cost;
     const div = document.createElement("div"); div.className = "tal-item";
-    div.innerHTML = '<div class="tico">' + tal.ico + '</div><div class="tinfo"><div class="tnm">' + tal.name + ' <span style="color:#c77dff;font-weight:700;font-size:12px;">(' + lvl + '/' + tal.max + ')</span></div><div class="tdesc">' + tal.desc + '</div></div><button class="tal-buy" ' + (canBuy ? "" : "disabled") + '>' + (maxed ? "MAX" : "💎 " + cost) + '</button>';
+    div.innerHTML = '<div class="tico">' + tal.ico + '</div><div class="tinfo"><div class="tnm">' + tal.name + ' <span style="color:#b5179e;font-weight:700;font-size:12px;">(' + lvl + '/' + tal.max + ')</span></div><div class="tdesc">' + tal.desc + '</div></div><button class="tal-buy" ' + (canBuy ? "" : "disabled") + '>' + (maxed ? "MAX" : "💎 " + cost) + '</button>';
     div.querySelector(".tal-buy").addEventListener("click", () => {
-      if (persistent.essence < cost) { showInfo("💎 Essência insuficiente"); return; }
+      if (persistent.essence < cost) { showInfo("💎 Núcleos insuficientes"); return; }
       persistent.essence -= cost; persistent.talents[tal.id] = lvl + 1; vibrate(15); showInfo("✨ " + tal.name + " Nv." + (lvl+1)); saveProgress(true); renderTalentList(); updateHUD();
     });
     talList.appendChild(div);
@@ -1016,42 +1069,42 @@ function renderTalentList(){
 
 menuBtn.addEventListener("click", openTalents); talClose.addEventListener("click", closeTalents);
 function convertGold(){
-  if (running) {showInfo("💎 Converte ouro entre vagas");return;}
-  if (gold < 1000) { showInfo("🪙 Precisas de 1000 ouro"); return; }
-  gold -= 1000; persistent.essence++; hudDirty = true; vibrate(10); showInfo("💎 +1 essência");
+  if (running) {showInfo("💎 Converte créditos entre sectores");return;}
+  if (gold < 1000) { showInfo("🪙 Precisas de 1000 créditos"); return; }
+  gold -= 1000; persistent.essence++; hudDirty = true; vibrate(10); showInfo("💎 +1 núcleo de essência");
   if (talentScreen.classList.contains("show")) renderTalentList(); forceSave();
 }
 talConv.addEventListener("click", convertGold);
 
 function resumeGame(){ if (talentScreen.classList.contains("show") || gameOverFlag || branchScreen.classList.contains("show") || rankingScreen.classList.contains("show") || ascendScreen.classList.contains("show") || buildMenu.classList.contains("show") || popup.classList.contains("show")) return; paused = false; pauseBadge.classList.remove("show"); lastTime = 0; }
 pauseBadge.addEventListener("click", resumeGame); pauseBadge.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); resumeGame(); } });
-talSave.addEventListener("click", () => { forceSave(); showInfo("💾 Guardado!"); vibrate(20); });
+talSave.addEventListener("click", () => { forceSave(); showInfo("💾 Estado Guardado!"); vibrate(20); });
 
 function renderGlobalRanking(){
   globalRankingList.innerHTML = ""; 
   const sorted = persistent.ranking.slice().sort((a,b) => b.score - a.score).slice(0, 10);
-  if (!sorted.length) { globalRankingList.innerHTML = '<div style="text-align:center;color:#5a6b82;font-size:13px;padding:20px;">Ainda sem recordes</div>'; return; }
+  if (!sorted.length) { globalRankingList.innerHTML = '<div style="text-align:center;color:#5a80a2;font-size:13px;padding:20px;">Sem registos no sistema</div>'; return; }
   sorted.forEach((r, i) => { 
     const d = document.createElement("div"); 
     d.className = "rk-item"; 
     d.innerHTML = '<div class="rk-pos">#' + (i+1) + '</div>' +
-                  '<div class="rk-name">' + escapeHtml(r.name || "Anónimo") + '</div>' +
+                  '<div class="rk-name">' + escapeHtml(r.name || "Operador Anónimo") + '</div>' +
                   '<div class="rk-score">' + r.score + ' pts</div>' +
-                  '<div class="rk-wave">vaga ' + r.wave + ' · asc ' + (r.asc || 0) + '</div>'; 
+                  '<div class="rk-wave">sec ' + r.wave + ' · over ' + (r.asc || 0) + '</div>'; 
     globalRankingList.appendChild(d); 
   });
 }
 function renderGameOverRanking(){
   ovRanking.innerHTML = ""; 
   const sorted = persistent.ranking.slice().sort((a,b) => b.score - a.score).slice(0, 10);
-  if (!sorted.length) { ovRanking.innerHTML = '<div style="text-align:center;color:#5a6b82;font-size:13px;padding:10px;">Ainda sem recordes</div>'; return; }
+  if (!sorted.length) { ovRanking.innerHTML = '<div style="text-align:center;color:#5a80a2;font-size:13px;padding:10px;">Sem registos</div>'; return; }
   sorted.forEach((r, i) => { 
     const d = document.createElement("div"); 
     d.className = "rk-item"; 
     d.innerHTML = '<div class="rk-pos">#' + (i+1) + '</div>' +
-                  '<div class="rk-name">' + escapeHtml(r.name || "Anónimo") + '</div>' +
+                  '<div class="rk-name">' + escapeHtml(r.name || "Operador Anónimo") + '</div>' +
                   '<div class="rk-score">' + r.score + '</div>' +
-                  '<div class="rk-wave">v.' + r.wave + ' · a.' + (r.asc || 0) + '</div>'; 
+                  '<div class="rk-wave">s.' + r.wave + ' · o.' + (r.asc || 0) + '</div>'; 
     ovRanking.appendChild(d); 
   });
 }
@@ -1067,7 +1120,7 @@ function endGame(){
 }
 
 ovBtn.addEventListener("click", () => {
-  const name = (ovName.value || "").trim().replace(/[<>]/g, "").slice(0, 16) || "Anónimo";
+  const name = (ovName.value || "").trim().replace(/[<>]/g, "").slice(0, 16) || "Operador Anónimo";
   persistent.playerName = name; 
   
   persistent.ranking.push({ 
