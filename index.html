@@ -75,7 +75,7 @@
 
 <script>
 "use strict";
-const SAVE_KEY = "gridRunnerBestScoreV5";
+const SAVE_KEY = "gridRunnerBestScoreV6";
 let bestScore = 0;
 try { const saved = localStorage.getItem(SAVE_KEY); if (saved) bestScore = parseInt(saved, 10) || 0; } catch(_) {}
 
@@ -226,6 +226,8 @@ function triggerLevelUp(){
 }
 
 let spawnTimer = 0;
+let heartSpawnTimer = 0; // Temporizador para gerar corações na arena regularmente
+
 function update(){
   if (!running) return;
 
@@ -253,6 +255,17 @@ function update(){
   if (spawnTimer >= Math.max(15, 55 - level * 3)) {
     spawnTimer = 0;
     spawnEnemy();
+  }
+
+  // Criar corações na arena de forma contínua e espaçada (a cada ~8 segundos de jogo ativo)
+  heartSpawnTimer++;
+  if (heartSpawnTimer >= 500) {
+    heartSpawnTimer = 0;
+    hearts.push({
+      x: Math.random() * (w - 60) + 30,
+      y: Math.random() * (h - 60) + 30,
+      lifeTime: 500
+    });
   }
 
   player.fireTimer++;
@@ -330,17 +343,8 @@ function update(){
         if (xp >= maxXp) {
           xp -= maxXp;
           level++;
-          maxXp = Math.floor(maxXp * 1.5); // Exige mais experiência para o próximo nível (mais espaçado)
-          triggerLevelUp(); // Pausa brevemente o jogo para escolheres o upgrade na hora!
-
-          // Chance de surgir um coração cibernético na arena
-          if (Math.random() < 0.5) {
-            hearts.push({
-              x: Math.random() * (w - 60) + 30,
-              y: Math.random() * (h - 60) + 30,
-              lifeTime: 450
-            });
-          }
+          maxXp = Math.floor(maxXp * 1.5);
+          triggerLevelUp();
         }
         updateHUD();
       }
