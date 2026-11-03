@@ -69,7 +69,7 @@
   <div id="screenOverlay">
     <div class="menu-card">
       <div class="title">GRID RUNNER</div>
-      <div class="subtitle" id="menuSubtitle">Modo Hardcore: Se saíres do jogo, o teu progresso fica gravado automaticamente!</div>
+      <div class="subtitle" id="menuSubtitle">Modo Hardcore: O teu progresso é gravado automaticamente.</div>
       <button class="btn" id="startBtn">INICIALIZAR SISTEMA</button>
     </div>
   </div>
@@ -144,8 +144,8 @@
   document.getElementById('dynamicAppleIcon').href = iconDataUrl;
 })();
 
-const SAVE_KEY = "gridRunnerBestScoreV11";
-const PROGRESS_KEY = "gridRunnerActiveProgressV1";
+const SAVE_KEY = "gridRunnerBestScoreV12";
+const PROGRESS_KEY = "gridRunnerActiveProgressV2";
 let bestScore = 0;
 try { const saved = localStorage.getItem(SAVE_KEY); if (saved) bestScore = parseInt(saved, 10) || 0; } catch(_) {}
 
@@ -185,11 +185,9 @@ function resizeCanvas(){
   cv.style.width = w + "px";
   cv.style.height = h + "px";
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  if (!running && player.x === 0) { player.x = w / 2; player.y = h / 2; }
 }
-window.addEventListener("resize", resizeCanvas);
 
-// Verificar progresso guardado
+// Verificar progresso guardado ao iniciar
 let hasSavedProgress = false;
 try {
   const savedProg = localStorage.getItem(PROGRESS_KEY);
@@ -197,12 +195,27 @@ try {
     const p = JSON.parse(savedProg);
     if (p && p.lives > 0) {
       hasSavedProgress = true;
-      score = p.score; level = p.level; xp = p.xp; maxXp = p.maxXp; lives = p.lives;
-      waitingForSync = p.waitingForSync; syncCore = p.syncCore;
-      player = p.player;
+      score = p.score || 0;
+      level = p.level || 1;
+      xp = p.xp || 0;
+      maxXp = p.maxXp || 45;
+      lives = p.lives || 3;
+      waitingForSync = !!p.waitingForSync;
+      syncCore = p.syncCore || null;
+      if (p.player) {
+        player.x = p.player.x || 0;
+        player.y = p.player.y || 0;
+        player.speed = p.player.speed || 3.8;
+        player.fireRate = p.player.fireRate || 35;
+        player.damage = p.player.damage || 1;
+        player.bulletCount = p.player.bulletCount || 1;
+        player.range = p.player.range || 170;
+      }
     }
   }
-} catch(_) {}
+} catch(_) {
+  hasSavedProgress = false;
+}
 
 if (hasSavedProgress) {
   menuSubtitle.textContent = `Progresso guardado (Nv. ${level}, ${score} pts). Clica abaixo para continuar!`;
@@ -225,20 +238,24 @@ function clearProgress() {
 }
 
 function startGame(resume = false){
-  resizeCanvas(); // Garante dimensões corretas do canvas antes de arrancar
-  const w = cv.clientWidth, h = cv.clientHeight;
+  resizeCanvas();
+  const w = cv.clientWidth || window.innerWidth;
+  const h = cv.clientHeight || 400;
+
   if (!resume || !hasSavedProgress) {
     clearProgress();
-    player.x = w / 2; player.y = h / 2;
+    player.x = w / 2;
+    player.y = h / 2;
     score = 0; level = 1; xp = 0; maxXp = 45; lives = 3;
     waitingForSync = false; syncCore = null;
     player.speed = 3.8; player.fireRate = 35; player.damage = 1; player.bulletCount = 1; player.range = 170;
     enemies = []; gems = []; bullets = [];
   } else {
-    // Se continuar, garante que a nave não fica fora dos limites do ecrã se o tamanho alterou
+    // Garantir que a nave fica dentro do ecrã atual
     player.x = Math.max(player.radius, Math.min(w - player.radius, player.x || w / 2));
     player.y = Math.max(player.radius, Math.min(h - player.radius, player.y || h / 2));
   }
+
   screenOverlay.classList.add("hidden");
   running = true;
   updateHUD();
