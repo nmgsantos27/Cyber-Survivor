@@ -69,7 +69,7 @@
   <div id="screenOverlay">
     <div class="menu-card">
       <div class="title">GRID RUNNER</div>
-      <div class="subtitle">Modo Hardcore: Quando a barra encher, tens de ir apanhar o núcleo de sincronização na arena para desbloquear o upgrade!</div>
+      <div class="subtitle" id="menuSubtitle">Modo Hardcore: Se saíres do jogo, o teu progresso fica gravado automaticamente para poderes continuar!</div>
       <button class="btn" id="startBtn">INICIALIZAR SISTEMA</button>
     </div>
   </div>
@@ -144,21 +144,23 @@
   document.getElementById('dynamicAppleIcon').href = iconDataUrl;
 })();
 
-const SAVE_KEY = "gridRunnerBestScoreV10";
+const SAVE_KEY = "gridRunnerBestScoreV11";
+const PROGRESS_KEY = "gridRunnerActiveProgressV1";
 let bestScore = 0;
 try { const saved = localStorage.getItem(SAVE_KEY); if (saved) bestScore = parseInt(saved, 10) || 0; } catch(_) {}
 
 const cv = document.getElementById("cv"), ctx = cv.getContext("2d");
 const scoreLbl = document.getElementById("scoreLbl"), bestLbl = document.getElementById("bestLbl"), levelLbl = document.getElementById("levelLbl"), lifeLbl = document.getElementById("lifeLbl");
 const xpBar = document.getElementById("xpBar"), screenOverlay = document.getElementById("screenOverlay"), startBtn = document.getElementById("startBtn");
+const menuSubtitle = document.getElementById("menuSubtitle");
 const levelUpModal = document.getElementById("levelUpModal"), upgradeList = document.getElementById("upgradeList");
 const infoAlert = document.getElementById("infoAlert");
 
 bestLbl.textContent = bestScore;
 
 let running = false, score = 0, level = 1, xp = 0, maxXp = 45, lives = 3;
-let waitingForSync = false; // Estado de espera para apanhar o núcleo de sincronização
-let syncCore = null; // Coordenadas do núcleo na arena
+let waitingForSync = false;
+let syncCore = null;
 
 let player = { x: 0, y: 0, radius: 14, speed: 3.8, fireRate: 35, fireTimer: 0, damage: 1, bulletCount: 1, range: 170 };
 let enemies = [], gems = [], bullets = [];
@@ -187,19 +189,69 @@ function resizeCanvas(){
 }
 window.addEventListener("resize", resizeCanvas);
 
-function startGame(){
+// Verificar se existe progresso gravado ao carregar a página
+let hasSavedProgress = false;
+try {
+  const savedProg = localStorage.getItem(PROGRESS_KEY);
+  if (savedProg) {
+    const p = JSON.parse(savedProg);
+    if (p && p.lives > 0) {
+      hasSavedProgress = true;
+      score = p.score; level = p.level; xp = p.xp; maxXp = p.maxXp; lives = p.lives;
+      waitingForSync = p.waitingForSync; syncCore = p.syncCore;
+      player = p.player;
+    }
+  }
+} catch(_) {}
+
+if (hasSavedProgress) {
+  menuSubtitle.textContent = `Progresso guardado detetado (Nv. ${level}, ${score} pontos). Poca abaixo para continuar!`;
+  startBtn.textContent = "CONTINUAR PARTIDA";
+}
+
+function saveProgress() {
+  if (!running) return;
+  try {
+    const data = {
+      score, level, xp, maxXp, lives, waitingForSync, syncCore,
+      player: { x: player.x, y: player.y, speed: player.speed, fireRate: player.fireRate, damage: player.damage, bulletCount: player.bulletCount, range: player.range }
+    };
+    localStorage.setItem(PROGRESS_KEY, JSON.stringify(data));
+  } catch(_) {}
+}
+
+function clearProgress() {
+  try { localStorage.removeItem(PROGRESS_KEY); } catch(_) {}
+}
+
+function startGame(resume = false){
   const w = cv.clientWidth, h = cv.clientHeight;
-  player.x = w / 2; player.y = h / 2;
-  score = 0; level = 1; xp = 0; maxXp = 45; lives = 3;
-  waitingForSync = false; syncCore = null;
-  player.speed = 3.8; player.fireRate = 35; player.damage = 1; player.bulletCount = 1; player.range = 170;
-  enemies = []; gems = []; bullets = [];
+  if (!resume || !hasSavedProgress) {
+    clearProgress();
+    player.x = w / 2; player.y = h / 2;
+    score = 0; level = 1; xp = 0; maxXp = 45; lives = 3;
+    waitingForSync = false; syncCore = null;
+    player.speed = 3.8; player.fireRate = 35; player.damage = 1; player.bulletCount = 1; player.range = 170;
+    enemies = []; gems = []; bullets = [];
+  }
   screenOverlay.classList.add("hidden");
   running = true;
   updateHUD();
 }
 
-startBtn.addEventListener("click", startGame);
+startBtn.addEventListener("click", () => startGame(hasSavedProgress));
+
+// Gravar progresso se sair da página ou fechar a aba
+window.addEventListener("beforeunload", () => {
+  saveProgress();
+});
+
+// Gravar também quando a app vai para segundo plano no telemóvel (visibilitychange)
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) {
+    saveProgress();
+  }
+});
 
 window.addEventListener("keydown", e => { keys[e.key.toLowerCase()] = true; });
 window.addEventListener("keyup", e => { keys[e.key.toLowerCase()] = false; });
@@ -274,6 +326,8 @@ function spawnEnemy(){
 
 function triggerLevelUp(){
   running = false;
+  clearProgress(); // Limpa o progresso pendente ao passar de nível para gravar limpo no próximo
+  hasSavedProgress = false;
   levelUpModal.classList.add("show");
   upgradeList.innerHTML = "";
 
@@ -293,17 +347,26 @@ function triggerLevelUp(){
       opt.apply();
       levelUpModal.classList.remove("show");
       running = true;
+      saveProgress();
     });
     upgradeList.appendChild(div);
   });
 }
 
 let spawnTimer = 0;
+let saveTimer = 0;
 
 function update(){
   if (!running) return;
 
   const w = cv.clientWidth, h = cv.clientHeight;
+
+  // Gravar progresso automaticamente a cada 5 segundos de jogo fluido
+  saveTimer++;
+  if (saveTimer >= 300) {
+    saveTimer = 0;
+    saveProgress();
+  }
 
   let vx = 0, vy = 0;
   if (keys["w"] || keys["arrowup"]) vy -= 1;
@@ -366,6 +429,8 @@ function update(){
       updateHUD();
       if (lives <= 0) {
         running = false;
+        clearProgress();
+        hasSavedProgress = false;
         if (score > bestScore) {
           bestScore = score;
           try { localStorage.setItem(SAVE_KEY, bestScore.toString()); } catch(_) {}
@@ -386,7 +451,6 @@ function update(){
         if (e.hp <= 0) {
           score += 15;
           if (score > bestScore) bestScore = score;
-          // Se já estiver à espera de sincronizar, as gemas continuam a dar pontos mas não XP extra
           if (!waitingForSync) {
             gems.push({ x: e.x, y: e.y, value: 10 });
           }
@@ -396,7 +460,6 @@ function update(){
   });
   enemies = enemies.filter(e => e.hp > 0);
 
-  // Se não estiver à espera de sincronizar, recolhe gemas normalmente
   if (!waitingForSync) {
     gems.forEach(g => {
       const d = Math.hypot(player.x - g.x, player.y - g.y);
@@ -407,9 +470,8 @@ function update(){
           g.collected = true;
           xp += g.value;
           if (xp >= maxXp) {
-            xp = maxXp; // Trava a barra no máximo
+            xp = maxXp;
             waitingForSync = true;
-            // Cria o núcleo de sincronização num sítio aleatório da arena
             syncCore = {
               x: Math.random() * (w - 80) + 40,
               y: Math.random() * (h - 80) + 40,
@@ -418,16 +480,15 @@ function update(){
             showAlert("⚠️ NÚCLEO DE SINCRONIZAÇÃO DETETADO NA ARENA!");
           }
           updateHUD();
+          saveProgress();
         }
       }
     });
     gems = gems.filter(g => !g.collected);
   } else {
-    // A aguardar que o jogador vá apanhar o núcleo de sincronização
     if (syncCore) {
       const d = Math.hypot(player.x - syncCore.x, player.y - syncCore.y);
       if (d < player.radius + syncCore.radius) {
-        // Apanhou o núcleo! Avança de nível e abre o upgrade
         waitingForSync = false;
         syncCore = null;
         level++;
@@ -450,7 +511,6 @@ function render(){
   for (let x = 0; x < w; x += step) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke(); }
   for (let y = 0; y < h; y += step) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke(); }
 
-  // Desenhar gemas de XP (só se não estiver à espera de sincronizar)
   if (!waitingForSync) {
     gems.forEach(g => {
       ctx.fillStyle = "#ffb703";
@@ -460,7 +520,6 @@ function render(){
     });
   }
 
-  // Desenhar o Núcleo de Sincronização se a barra estiver cheia
   if (waitingForSync && syncCore) {
     ctx.fillStyle = "#9d4edd";
     ctx.shadowColor = "#9d4edd"; ctx.shadowBlur = 18;
@@ -468,7 +527,6 @@ function render(){
     ctx.strokeStyle = "#fff"; ctx.lineWidth = 2.5; ctx.stroke();
     ctx.shadowBlur = 0;
 
-    // Efeito de pulso visual à volta do núcleo
     ctx.strokeStyle = "rgba(157, 78, 221, 0.5)";
     ctx.lineWidth = 2;
     ctx.beginPath();
