@@ -40,13 +40,6 @@
   .subtitle { font-size:12px; color:#7a9cb8; font-weight:700; margin-bottom:20px; }
   .btn { width:100%; padding:16px; border-radius:10px; background:#00f0ff; border:none; color:#03050c; font-weight:900; font-size:15px; cursor:pointer; box-shadow:0 0 20px rgba(0,240,255,0.5); margin-top:10px; }
   .btn:active { transform:scale(0.97); }
-  
-  #levelUpModal { position:absolute; inset:0; background:rgba(3,5,12,0.96); backdrop-filter:blur(6px); display:flex; flex-direction:column; justify-content:center; align-items:center; padding:20px; z-index:35; opacity:0; pointer-events:none; transition:opacity 0.2s; }
-  #levelUpModal.show { opacity:1; pointer-events:auto; }
-  .upgrade-opt { width:100%; max-width:360px; background:#0d1836; border:1px solid rgba(0,240,255,0.3); border-radius:10px; padding:14px; margin-bottom:10px; cursor:pointer; text-align:left; transition:all 0.15s; }
-  .upgrade-opt:active { background:#142450; transform:scale(0.98); }
-  .upgrade-opt .u-title { font-size:15px; font-weight:900; color:#ffb703; }
-  .upgrade-opt .u-desc { font-size:11px; color:#7a9cb8; font-weight:600; margin-top:3px; }
 
   #infoAlert { position:absolute; top:15%; left:50%; transform:translateX(-50%); background:rgba(5,10,25,0.95); border:1px solid #ff0055; color:#ff0055; padding:8px 16px; border-radius:8px; font-size:13px; font-weight:800; pointer-events:none; opacity:0; transition:opacity 0.3s; z-index:20; box-shadow:0 0 15px rgba(255,0,85,0.4); text-align:center; }
   #infoAlert.show { opacity:1; }
@@ -69,16 +62,8 @@
   <div id="screenOverlay">
     <div class="menu-card">
       <div class="title">GRID RUNNER</div>
-      <div class="subtitle" id="menuSubtitle">Modo Hardcore: Gere a energia do núcleo. Ficar parado causa sobreaquecimento e drena energia!</div>
+      <div class="subtitle" id="menuSubtitle">Modo Hardcore: Apanha os módulos físicos na arena para evoluir o armamento sem pausas!</div>
       <button class="btn" id="startBtn">INICIALIZAR SISTEMA</button>
-    </div>
-  </div>
-
-  <div id="levelUpModal">
-    <div class="menu-card" style="text-align:center;">
-      <div class="title" style="color:#ffb703;">⚡ UPGRADE DE SISTEMA</div>
-      <div class="subtitle">Escolhe um módulo de melhoria:</div>
-      <div id="upgradeList" style="margin-top:10px;"></div>
     </div>
   </div>
 </div>
@@ -144,8 +129,8 @@
   document.getElementById('dynamicAppleIcon').href = iconDataUrl;
 })();
 
-const SAVE_KEY = "gridRunnerBestScoreV14";
-const PROGRESS_KEY = "gridRunnerActiveProgressV4";
+const SAVE_KEY = "gridRunnerBestScoreV15";
+const PROGRESS_KEY = "gridRunnerActiveProgressV5";
 let bestScore = 0;
 try { const saved = localStorage.getItem(SAVE_KEY); if (saved) bestScore = parseInt(saved, 10) || 0; } catch(_) {}
 
@@ -153,19 +138,17 @@ const cv = document.getElementById("cv"), ctx = cv.getContext("2d");
 const scoreLbl = document.getElementById("scoreLbl"), bestLbl = document.getElementById("bestLbl"), levelLbl = document.getElementById("levelLbl"), energyLbl = document.getElementById("energyLbl");
 const xpBar = document.getElementById("xpBar"), screenOverlay = document.getElementById("screenOverlay"), startBtn = document.getElementById("startBtn");
 const menuSubtitle = document.getElementById("menuSubtitle");
-const levelUpModal = document.getElementById("levelUpModal"), upgradeList = document.getElementById("upgradeList");
 const infoAlert = document.getElementById("infoAlert");
 
 bestLbl.textContent = bestScore;
 
 let running = false, score = 0, level = 1, xp = 0, maxXp = 45, energy = 100;
-let waitingForSync = false;
-let syncCore = null;
+let pendingUpgradeModule = null; // Módulo físico no chão gerado ao sincronizar
 
 let idleTimer = 0;
 let isOverheating = false;
 
-let player = { x: 0, y: 0, radius: 14, speed: 3.8, fireRate: 35, fireTimer: 0, damage: 1, bulletCount: 1, range: 170 };
+let player = { x: 0, y: 0, radius: 14, speed: 3.8, fireRate: 35, fireTimer: 0, damage: 1, bulletCount: 1, range: 170, weaponType: "plasma" };
 let enemies = [], gems = [], bullets = [];
 let joystick = { active: false, id: null, startX: 0, startY: 0, curX: 0, curY: 0, dx: 0, dy: 0 };
 let keys = {};
@@ -175,7 +158,7 @@ function showAlert(msg) {
   infoAlert.textContent = msg;
   infoAlert.classList.add("show");
   clearTimeout(alertTimer);
-  alertTimer = setTimeout(() => infoAlert.classList.remove("show"), 2200);
+  alertTimer = setTimeout(() => infoAlert.classList.remove("show"), 2500);
 }
 
 function resizeCanvas(){
@@ -202,8 +185,7 @@ try {
       xp = p.xp || 0;
       maxXp = p.maxXp || 45;
       energy = p.energy || 100;
-      waitingForSync = !!p.waitingForSync;
-      syncCore = p.syncCore || null;
+      pendingUpgradeModule = p.pendingUpgradeModule || null;
       if (p.player) {
         player.x = p.player.x || 0;
         player.y = p.player.y || 0;
@@ -212,6 +194,7 @@ try {
         player.damage = p.player.damage || 1;
         player.bulletCount = p.player.bulletCount || 1;
         player.range = p.player.range || 170;
+        player.weaponType = p.player.weaponType || "plasma";
       }
     }
   }
@@ -228,8 +211,8 @@ function saveProgress() {
   if (!running) return;
   try {
     const data = {
-      score, level, xp, maxXp, energy, waitingForSync, syncCore,
-      player: { x: player.x, y: player.y, speed: player.speed, fireRate: player.fireRate, damage: player.damage, bulletCount: player.bulletCount, range: player.range }
+      score, level, xp, maxXp, energy, pendingUpgradeModule,
+      player: { x: player.x, y: player.y, speed: player.speed, fireRate: player.fireRate, damage: player.damage, bulletCount: player.bulletCount, range: player.range, weaponType: player.weaponType }
     };
     localStorage.setItem(PROGRESS_KEY, JSON.stringify(data));
   } catch(_) {}
@@ -249,8 +232,8 @@ function startGame(resume = false){
     player.x = w / 2;
     player.y = h / 2;
     score = 0; level = 1; xp = 0; maxXp = 45; energy = 100;
-    waitingForSync = false; syncCore = null;
-    player.speed = 3.8; player.fireRate = 35; player.damage = 1; player.bulletCount = 1; player.range = 170;
+    pendingUpgradeModule = null;
+    player.speed = 3.8; player.fireRate = 35; player.damage = 1; player.bulletCount = 1; player.range = 170; player.weaponType = "plasma";
     enemies = []; gems = []; bullets = [];
   } else {
     player.x = Math.max(player.radius, Math.min(w - player.radius, player.x || w / 2));
@@ -341,33 +324,24 @@ function spawnEnemy(){
   enemies.push({ x, y, hp, maxHp: hp, speed: speed * (1 + level * 0.04), color, radius, type });
 }
 
-function triggerLevelUp(){
-  running = false;
-  clearProgress();
-  hasSavedProgress = false;
-  levelUpModal.classList.add("show");
-  upgradeList.innerHTML = "";
-
-  const options = [
-    { title: "⚡ Overclock de Cadência", desc: "Aumenta a velocidade de disparo em 20%.", apply: () => { player.fireRate = Math.max(10, player.fireRate * 0.8); } },
-    { title: "🎯 Módulo de Precisão", desc: "Aumenta o raio de alcance dos disparos automáticos.", apply: () => { player.range += 35; } },
-    { title: "⚔️ Núcleo de Dano", desc: "Aumenta o dano do plasma em +1.", apply: () => { player.damage += 1; } },
-    { title: "💥 Dispersão Dupla", desc: "Dispara mais um feixe de plasma por rajada.", apply: () => { player.bulletCount += 1; } }
+// Gera um módulo de upgrade físico aleatório para cair na arena
+function spawnUpgradeModule(){
+  const w = cv.clientWidth, h = cv.clientHeight;
+  const types = [
+    { title: "⚡ Overclock de Cadência", type: "fireRate", apply: () => { player.fireRate = Math.max(10, player.fireRate * 0.85); } },
+    { title: "🎯 Módulo de Precisão", type: "range", apply: () => { player.range += 40; } },
+    { title: "⚔️ Núcleo de Dano Plasma", type: "damage", apply: () => { player.damage += 1; } },
+    { title: "💥 Canhão Laser Duplo", type: "weapon", apply: () => { player.bulletCount += 1; player.weaponType = "dual"; } },
+    { title: "🌟 Canhão Orbitante V-Laser", type: "weapon", apply: () => { player.bulletCount = 3; player.weaponType = "triple"; } }
   ];
-
-  const shuffled = options.sort(() => 0.5 - Math.random()).slice(0, 3);
-  shuffled.forEach(opt => {
-    const div = document.createElement("div");
-    div.className = "upgrade-opt";
-    div.innerHTML = `<div class="u-title">${opt.title}</div><div class="u-desc">${opt.desc}</div>`;
-    div.addEventListener("click", () => {
-      opt.apply();
-      levelUpModal.classList.remove("show");
-      running = true;
-      saveProgress();
-    });
-    upgradeList.appendChild(div);
-  });
+  const chosen = types[Math.floor(Math.random() * types.length)];
+  pendingUpgradeModule = {
+    x: Math.random() * (w - 80) + 40,
+    y: Math.random() * (h - 80) + 40,
+    radius: 18,
+    data: chosen
+  };
+  showAlert(`🎁 MÓDULO DISPONÍVEL: ${chosen.title}!`);
 }
 
 let spawnTimer = 0;
@@ -399,12 +373,11 @@ function update(){
     isMoving = true;
   }
 
-  // Sobreaquecimento por estaticidade (drena energia se ficar parado mais de 3 segundos)
   if (!isMoving) {
     idleTimer++;
     if (idleTimer > 180) {
       isOverheating = true;
-      if (idleTimer % 60 === 0) { // Drena 10% de energia a cada segundo parado
+      if (idleTimer % 60 === 0) {
         energy -= 10;
         showAlert("🔥 ALERTA: SOBREAQUECIMENTO DA GRELHA (-10% ENERGIA)!");
         updateHUD();
@@ -452,12 +425,13 @@ function update(){
       player.fireTimer = 0;
       const angle = Math.atan2(target.y - player.y, target.x - player.x);
       for (let i = 0; i < player.bulletCount; i++) {
-        const spread = (i - (player.bulletCount - 1) / 2) * 0.15;
+        const spread = (i - (player.bulletCount - 1) / 2) * 0.18;
         bullets.push({
           x: player.x, y: player.y,
-          vx: Math.cos(angle + spread) * 8,
-          vy: Math.sin(angle + spread) * 8,
-          dmg: player.damage, life: 60
+          vx: Math.cos(angle + spread) * 8.5,
+          vy: Math.sin(angle + spread) * 8.5,
+          dmg: player.damage, life: 60,
+          type: player.weaponType
         });
       }
     }
@@ -472,7 +446,7 @@ function update(){
     e.y += Math.sin(angle) * e.speed;
 
     if (Math.hypot(e.x - player.x, e.y - player.y) < e.radius + player.radius) {
-      energy -= 34; // Cada impacto de inimigo drena cerca de 34% de energia
+      energy -= 34;
       e.hp = 0;
       updateHUD();
       if (energy <= 0) {
@@ -499,7 +473,7 @@ function update(){
         if (e.hp <= 0) {
           score += 15;
           if (score > bestScore) bestScore = score;
-          if (!waitingForSync) {
+          if (!pendingUpgradeModule) {
             gems.push({ x: e.x, y: e.y, value: 10 });
           }
         }
@@ -508,7 +482,8 @@ function update(){
   });
   enemies = enemies.filter(e => e.hp > 0);
 
-  if (!waitingForSync) {
+  // Recolha de gemas de XP
+  if (!pendingUpgradeModule) {
     gems.forEach(g => {
       const d = Math.hypot(player.x - g.x, player.y - g.y);
       if (d < 65) {
@@ -519,13 +494,7 @@ function update(){
           xp += g.value;
           if (xp >= maxXp) {
             xp = maxXp;
-            waitingForSync = true;
-            syncCore = {
-              x: Math.random() * (w - 80) + 40,
-              y: Math.random() * (h - 80) + 40,
-              radius: 16
-            };
-            showAlert("⚠️ NÚCLEO DE SINCRONIZAÇÃO DETETADO NA ARENA!");
+            spawnUpgradeModule(); // Faz nascer o módulo físico de upgrade na arena
           }
           updateHUD();
           saveProgress();
@@ -534,17 +503,17 @@ function update(){
     });
     gems = gems.filter(g => !g.collected);
   } else {
-    if (syncCore) {
-      const d = Math.hypot(player.x - syncCore.x, player.y - syncCore.y);
-      if (d < player.radius + syncCore.radius) {
-        waitingForSync = false;
-        syncCore = null;
-        level++;
-        maxXp = Math.floor(maxXp * 1.5);
-        xp = 0;
-        updateHUD();
-        triggerLevelUp();
-      }
+    // Verificar se o jogador passou por cima do módulo de upgrade físico
+    const d = Math.hypot(player.x - pendingUpgradeModule.x, player.y - pendingUpgradeModule.y);
+    if (d < player.radius + pendingUpgradeModule.radius) {
+      pendingUpgradeModule.data.apply();
+      showAlert(`✨ UPGRADE ADQUIRIDO: ${pendingUpgradeModule.data.title}!`);
+      pendingUpgradeModule = null;
+      level++;
+      maxXp = Math.floor(maxXp * 1.5);
+      xp = 0;
+      updateHUD();
+      saveProgress();
     }
   }
 }
@@ -574,7 +543,7 @@ function render(){
     ctx.stroke();
   }
 
-  if (!waitingForSync) {
+  if (!pendingUpgradeModule) {
     gems.forEach(g => {
       ctx.fillStyle = "#ffb703";
       ctx.shadowColor = "#ffb703"; ctx.shadowBlur = 6;
@@ -583,17 +552,19 @@ function render(){
     });
   }
 
-  if (waitingForSync && syncCore) {
-    ctx.fillStyle = "#9d4edd";
-    ctx.shadowColor = "#9d4edd"; ctx.shadowBlur = 18;
-    ctx.beginPath(); ctx.arc(syncCore.x, syncCore.y, syncCore.radius, 0, Math.PI * 2); ctx.fill();
+  // Desenhar o Módulo de Upgrade Físico na arena
+  if (pendingUpgradeModule) {
+    ctx.fillStyle = "#ffb703";
+    ctx.shadowColor = "#ffb703"; ctx.shadowBlur = 22;
+    ctx.beginPath(); ctx.arc(pendingUpgradeModule.x, pendingUpgradeModule.y, pendingUpgradeModule.radius, 0, Math.PI * 2); ctx.fill();
     ctx.strokeStyle = "#fff"; ctx.lineWidth = 2.5; ctx.stroke();
     ctx.shadowBlur = 0;
 
-    ctx.strokeStyle = "rgba(157, 78, 221, 0.5)";
+    // Anel pulsante à volta do módulo
+    ctx.strokeStyle = "rgba(255, 183, 3, 0.6)";
     ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.arc(syncCore.x, syncCore.y, syncCore.radius + ((Date.now() / 8) % 15), 0, Math.PI * 2);
+    ctx.arc(pendingUpgradeModule.x, pendingUpgradeModule.y, pendingUpgradeModule.radius + ((Date.now() / 6) % 18), 0, Math.PI * 2);
     ctx.stroke();
   }
 
@@ -605,9 +576,10 @@ function render(){
   });
 
   bullets.forEach(b => {
-    ctx.fillStyle = "#00f0ff";
-    ctx.shadowColor = "#00f0ff"; ctx.shadowBlur = 6;
-    ctx.beginPath(); ctx.arc(b.x, b.y, 3, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = b.type === "triple" ? "#ffb703" : "#00f0ff";
+    ctx.shadowColor = b.type === "triple" ? "#ffb703" : "#00f0ff";
+    ctx.shadowBlur = 6;
+    ctx.beginPath(); ctx.arc(b.x, b.y, b.type === "triple" ? 4 : 3, 0, Math.PI * 2); ctx.fill();
     ctx.shadowBlur = 0;
   });
 
