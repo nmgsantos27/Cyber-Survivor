@@ -38,8 +38,7 @@ canvas#cv{display:block;width:100%;height:100%;touch-action:none}
 .btn{width:100%;padding:14px 12px;border-radius:10px;background:#00e5f5;border:0;color:#03050c;font-weight:950;font-size:14px;cursor:pointer;box-shadow:0 0 18px rgba(0,240,255,.35);margin-top:9px}
 .btn:active{transform:scale(.98)}
 .btn.secondary{background:#10243d;color:#bcefff;border:1px solid rgba(0,240,255,.35);box-shadow:none}
-.btn.upgrade{background:#14243b;color:#fff;border:1px solid rgba(255,183,3,.6);box-shadow:0 0 12px rgba(255,183,3,.12);text-align:left}
-#infoAlert{position:absolute;top:18px;left:50%;transform:translateX(-50%) translateY(-35px);background:rgba(5,10,25,.97);border:1px solid #00f0ff;color:#00f0ff;padding:7px 14px;border-radius:20px;font-size:11px;font-weight:900;pointer-events:none;opacity:0;transition:all .22s;z-index:20;box-shadow:0 0 15px rgba(0,240,255,.25);text-align:center;white-space:nowrap;max-width:92%;overflow:hidden;text-overflow:ellipsis}
+#infoAlert{position:absolute;top:12px;left:50%;transform:translateX(-50%) translateY(-40px);background:rgba(5,10,25,.96);border:1px solid #00f0ff;color:#00f0ff;padding:6px 16px;border-radius:20px;font-size:11px;font-weight:900;pointer-events:none;opacity:0;transition:all .22s cubic-bezier(0.175, 0.885, 0.32, 1.275);z-index:20;box-shadow:0 0 15px rgba(0,240,255,.3);text-align:center;white-space:nowrap;max-width:92%;overflow:hidden;text-overflow:ellipsis}
 #infoAlert.show{opacity:1;transform:translateX(-50%) translateY(0)}
 .small-note{font-size:10px;color:#63809d;line-height:1.5;margin-top:12px}
 .menu-stats{display:flex;justify-content:center;gap:18px;margin:8px 0 12px;color:#9bb7d0;font-size:11px}
@@ -65,19 +64,19 @@ canvas#cv{display:block;width:100%;height:100%;touch-action:none}
   <div id="screenOverlay">
     <div class="menu-card">
       <div class="title" id="overlayTitle">GRID RUNNER</div>
-      <div class="subtitle" id="menuSubtitle">CYBER SURVIVOR · Sobrevive, recolhe energia e evolui o teu arsenal.</div>
+      <div class="subtitle" id="menuSubtitle">CYBER SURVIVOR · Apanha os módulos físicos de melhoria na arena para evoluir!</div>
       <div id="overlayStats" class="menu-stats" hidden></div>
       <div id="overlayActions">
         <button class="btn" id="startBtn">INICIALIZAR SISTEMA</button>
       </div>
-      <div class="small-note" id="menuNote">Move-te com o dedo no ecrã ou usa WASD / setas. O disparo é automático.</div>
+      <div class="small-note" id="menuNote">Move-te com o dedo no ecrã (com margem anti-gestos). O disparo é automático.</div>
     </div>
   </div>
 </div>
 <script>
 "use strict";
 
-/* GRID RUNNER: CYBER SURVIVOR — V2 equilibrada */
+/* GRID RUNNER: CYBER SURVIVOR — V25 com Módulos Físicos na Arena */
 (function makeIcon(){
   try{
     const c=document.createElement("canvas");c.width=c.height=192;const g=c.getContext("2d");
@@ -89,8 +88,8 @@ canvas#cv{display:block;width:100%;height:100%;touch-action:none}
   }catch(e){}
 })();
 
-const SAVE_KEY="gridRunnerBestScoreV24";
-const PROGRESS_KEY="gridRunnerProgressV24";
+const SAVE_KEY="gridRunnerBestScoreV25";
+const PROGRESS_KEY="gridRunnerProgressV25";
 const $=id=>document.getElementById(id);
 const cv=$("cv"),ctx=cv.getContext("2d",{alpha:false});
 const scoreLbl=$("scoreLbl"),bestLbl=$("bestLbl"),levelLbl=$("levelLbl"),energyLbl=$("energyLbl");
@@ -99,8 +98,8 @@ const overlay=$("screenOverlay"),overlayTitle=$("overlayTitle"),menuSubtitle=$("
 let bestScore=0;try{bestScore=Number(localStorage.getItem(SAVE_KEY))||0}catch(e){}
 let running=false,paused=false,gameOver=false;
 let score=0,level=1,xp=0,maxXp=45,energy=100;
-let player, enemies=[],bullets=[],gems=[],energyCells=[],boss=null,upgrade=null;
-let spawnClock=0,cellClock=0,saveClock=0,idleClock=0,damageCooldown=0,alertClock=0;
+let player, enemies=[],bullets=[],gems=[],energyCells=[],boss=null,pendingUpgrade=null;
+let spawnClock=0,cellClock=0,saveClock=0,idleClock=0,alertClock=0;
 let lastFrame=0,raf=0,hasSavedProgress=false;
 const keys=Object.create(null);
 const joystick={active:false,id:null,startX:0,startY:0,x:0,y:0,dx:0,dy:0};
@@ -119,7 +118,7 @@ function newPlayer(w,h){
 }
 function showAlert(msg){
   infoAlert.textContent=msg;infoAlert.classList.add("show");clearTimeout(alertClock);
-  alertClock=setTimeout(()=>infoAlert.classList.remove("show"),1900);
+  alertClock=setTimeout(()=>infoAlert.classList.remove("show"),2200);
 }
 function vibrate(pattern=45){try{if(navigator.vibrate)navigator.vibrate(pattern)}catch(e){}}
 function resizeCanvas(){
@@ -139,7 +138,7 @@ function saveBest(){
   updateHUD();
 }
 function serialise(){
-  return {version:2,score,level,xp,maxXp,energy,player:{...player},enemies,bullets,gems,energyCells,boss,upgrade:upgrade?{x:upgrade.x,y:upgrade.y,type:upgrade.type}:null,spawnClock,cellClock,idleClock,damageCooldown};
+  return {version:3,score,level,xp,maxXp,energy,player:{...player},enemies,bullets,gems,energyCells,boss,pendingUpgrade,spawnClock,cellClock,idleClock};
 }
 function saveProgress(){
   if(!player||gameOver)return;
@@ -150,11 +149,11 @@ function restoreProgress(){
   try{
     const raw=localStorage.getItem(PROGRESS_KEY);if(!raw)return false;
     const p=JSON.parse(raw);
-    if(!p||p.version!==2||!p.player||!(p.energy>0))return false;
+    if(!p||p.version!==3||!p.player||!(p.energy>0))return false;
     score=Math.max(0,Number(p.score)||0);level=Math.max(1,Number(p.level)||1);xp=Math.max(0,Number(p.xp)||0);maxXp=Math.max(20,Number(p.maxXp)||45);energy=clamp(Number(p.energy)||100,1,100);
     player={...newPlayer(cv.clientWidth,cv.clientHeight),...p.player};
     enemies=Array.isArray(p.enemies)?p.enemies:[];bullets=Array.isArray(p.bullets)?p.bullets:[];gems=Array.isArray(p.gems)?p.gems:[];energyCells=Array.isArray(p.energyCells)?p.energyCells:[];
-    boss=p.boss||null;upgrade=p.upgrade||null;spawnClock=Number(p.spawnClock)||0;cellClock=Number(p.cellClock)||0;idleClock=Number(p.idleClock)||0;damageCooldown=Number(p.damageCooldown)||0;
+    boss=p.boss||null;pendingUpgrade=p.pendingUpgrade||null;spawnClock=Number(p.spawnClock)||0;cellClock=Number(p.cellClock)||0;idleClock=Number(p.idleClock)||0;
     return true;
   }catch(e){return false}
 }
@@ -162,18 +161,18 @@ function showMenu(mode="start"){
   running=false;paused=false;overlay.classList.remove("hidden");overlayActions.innerHTML="";overlayStats.hidden=true;
   if(mode==="pause"){
     overlayTitle.textContent="SISTEMA EM PAUSA";menuSubtitle.textContent="A partida está pausada. Podes continuar quando estiveres pronto.";
-    addButton("CONTINUAR PARTIDA",()=>resumeGame());addButton("GUARDAR E SAIR",()=>{saveProgress();showMenu("start") },"secondary");
+    addButton("CONTINUAR PARTIDA",()=>resumeGame());addButton("GUARDAR E SAIR",()=>{saveProgress();showMenu("start")},"secondary");
     menuNote.textContent="O progresso é guardado automaticamente durante a partida.";
   }else if(mode==="over"){
     overlayTitle.textContent="FALHA DE SISTEMA";menuSubtitle.textContent="A tua energia chegou a zero. A simulação terminou.";
     overlayStats.hidden=false;overlayStats.innerHTML=`<span>Pontos: <b>${Math.floor(score)}</b></span><span>Nível: <b>${level}</b></span><span>Recorde: <b>${bestScore}</b></span>`;
     addButton("TENTAR DE NOVO",()=>startGame(false));menuNote.textContent="O recorde fica guardado neste dispositivo.";
   }else{
-    overlayTitle.textContent="GRID RUNNER";menuSubtitle.textContent="CYBER SURVIVOR · Sobrevive, recolhe energia e evolui o teu arsenal.";
+    overlayTitle.textContent="GRID RUNNER";menuSubtitle.textContent="CYBER SURVIVOR · Apanha os módulos físicos de melhoria na arena para evoluir!";
     const canResume=hasSavedProgress&&restoreProgress();
     if(canResume)addButton("CONTINUAR PARTIDA",()=>startGame(true));
     addButton(canResume?"NOVO JOGO":"INICIALIZAR SISTEMA",()=>startGame(false),canResume?"secondary":"");
-    menuNote.textContent="Move-te com o dedo no ecrã ou usa WASD / setas. O disparo é automático.";
+    menuNote.textContent="Move-te com o dedo no ecrã (com margem anti-gestos). O disparo é automático.";
   }
 }
 function addButton(label,action,kind=""){
@@ -181,12 +180,10 @@ function addButton(label,action,kind=""){
 }
 function startGame(resume=false){
   resizeCanvas();
-  if(resume){
-    if(!restoreProgress())resume=false;
-  }
+  if(resume){if(!restoreProgress())resume=false;}
   if(!resume){
     clearProgress();score=0;level=1;xp=0;maxXp=45;energy=100;player=newPlayer(cv.clientWidth,cv.clientHeight);
-    enemies=[];bullets=[];gems=[];energyCells=[];boss=null;upgrade=null;spawnClock=0;cellClock=0;idleClock=0;damageCooldown=0;
+    enemies=[];bullets=[];gems=[];energyCells=[];boss=null;pendingUpgrade=null;spawnClock=0;cellClock=0;idleClock=0;
   }
   gameOver=false;paused=false;running=true;saveClock=0;bossBarContainer.style.display=boss?"block":"none";
   overlay.classList.add("hidden");updateHUD();lastFrame=0;requestAnimationFrame(loop);
@@ -211,33 +208,29 @@ function spawnEnemy(){
   enemies.push({x,y,type,hp:Math.ceil(base.hp*(1+Math.max(0,level-1)*.07)),maxHp:Math.ceil(base.hp*(1+Math.max(0,level-1)*.07)),speed:base.speed*(1+Math.min(level-1,20)*.018),radius:base.r,color:base.color,damage:base.damage,score:base.score,xpValue:base.xp});
 }
 function spawnBoss(){
-  const w=cv.clientWidth,h=cv.clientHeight, hp=95+level*17;
+  const w=cv.clientWidth,h=cv.clientHeight,hp=95+level*17;
   boss={x:w/2,y:-40,radius:27,hp,maxHp:hp,speed:1.05+Math.min(level,20)*.025,phase:0,attackTimer:100};
-  bossBarContainer.style.display="block";updateHUD();showAlert("⚠ BOSS DETETADO — PREPARA-TE!");vibrate([90,50,90]);
+  bossBarContainer.style.display="block";updateHUD();showAlert("⚠ BOSS DETETADO NA ARENA!");vibrate([90,50,90]);
 }
-function spawnUpgrade(){
-  const options=[
-    {id:"rapid",name:"⚡ Overclock",desc:"Dispara 16% mais depressa",apply:()=>player.fireRate=Math.max(9,player.fireRate*.84)},
-    {id:"range",name:"🎯 Mira ampliada",desc:"Aumenta o alcance em 35",apply:()=>player.range+=35},
-    {id:"damage",name:"⚔ Plasma pesado",desc:"Aumenta o dano dos disparos",apply:()=>player.damage+=1},
-    {id:"double",name:"💥 Canhão duplo",desc:"Adiciona um projétil",apply:()=>{player.bulletCount=Math.min(5,player.bulletCount+1);player.weaponType="dual"}},
-    {id:"speed",name:"🚀 Propulsor",desc:"Aumenta a velocidade de movimento",apply:()=>player.speed=Math.min(5.2,player.speed+.35)},
-    {id:"shield",name:"🛡 Blindagem",desc:"Recupera 20% de energia",apply:()=>energy=Math.min(100,energy+20)}
-  ];
-  const chosen=[];while(chosen.length<3){const item=options[Math.floor(Math.random()*options.length)];if(!chosen.some(x=>x.id===item.id))chosen.push(item)}
+function spawnUpgradeModule(){
   const w=cv.clientWidth,h=cv.clientHeight;
-  upgrade={x:rand(55,Math.max(56,w-55)),y:rand(65,Math.max(66,h-65)),radius:17,choices:chosen};
-  showAlert("MÓDULO DE MELHORIA DISPONÍVEL");
-}
-function collectUpgrade(){
-  if(!upgrade)return;
-  const choices=upgrade.choices;running=false;paused=true;overlay.classList.remove("hidden");overlayActions.innerHTML="";
-  overlayTitle.textContent="ESCOLHE UMA MELHORIA";menuSubtitle.textContent=`Nível ${level} concluído. Escolhe um módulo para continuar.`;
-  overlayStats.hidden=true;menuNote.textContent="A escolha aplica-se imediatamente à tua personagem.";
-  choices.forEach((item,i)=>{
-    const b=document.createElement("button");b.className="btn upgrade";b.innerHTML=`${i+1}. ${item.name}<br><small style="font-weight:600;color:#a8bfd5">${item.desc}</small>`;
-    b.addEventListener("click",()=>{item.apply();upgrade=null;level++;xp=0;maxXp=Math.floor(maxXp*1.32+8);paused=false;running=true;overlay.classList.add("hidden");updateHUD();saveProgress();lastFrame=0;requestAnimationFrame(loop)},{once:true});overlayActions.appendChild(b);
-  });
+  const options=[
+    {id:"rapid",name:"⚡ Overclock",desc:"Dispara mais depressa",apply:()=>{player.fireRate=Math.max(9,player.fireRate*.84);showAlert("⚡ Overclock Ativado!")}},
+    {id:"range",name:"🎯 Mira ampliada",desc:"Maior alcance",apply:()=>{player.range+=35;showAlert("🎯 Mira Ampliada!")}},
+    {id:"damage",name:"⚔ Plasma pesado",desc:"Aumenta o dano",apply:()=>{player.damage+=1;showAlert("⚔ Plasma Pesado!")}},
+    {id:"double",name:"💥 Canhão duplo",desc:"Projétil extra",apply:()=>{player.bulletCount=Math.min(5,player.bulletCount+1);player.weaponType="dual";showAlert("💥 Canhão Duplo!")}},
+    {id:"speed",name:"🚀 Propulsor",desc:"Maior velocidade",apply:()=>{player.speed=Math.min(5.2,player.speed+.35);showAlert("🚀 Propulsor Ativo!")}},
+    {id:"shield",name:"🛡 Blindagem",desc:"Recupera 25% de energia",apply:()=>{energy=Math.min(100,energy+25);showAlert("🛡 Blindagem (+25% Energia)!")}}
+  ];
+  const chosen=options[Math.floor(Math.random()*options.length)];
+  pendingUpgrade={
+    x:rand(50,w-50),
+    y:rand(50,h-50),
+    radius:18,
+    data:chosen
+  };
+  showAlert("🎁 MÓDULO DE UPGRADE DISPONÍVEL NA ARENA!");
+  vibrate(70);
 }
 function damagePlayer(amount){
   if(player.invulnerable>0)return;
@@ -268,11 +261,11 @@ function update(dt){
   if(joystick.active&&(joystick.dx||joystick.dy)){vx=joystick.dx;vy=joystick.dy}
   const moving=Math.hypot(vx,vy)>.08;
   if(moving)idleClock=0;else idleClock+=dt;
-  if(idleClock>12&&Math.floor((idleClock-12)/5)!==Math.floor((idleClock-dt-12)/5)){energy=Math.max(0,energy-3);showAlert("SOBREAQUECIMENTO: MOVE-TE!");if(energy<=0){endGame();return}}
+  if(idleClock>12&&Math.floor((idleClock-12)/5)!==Math.floor((idleClock-dt-12)/5)){energy=Math.max(0,energy-3);showAlert("🔥 SOBREAQUECIMENTO: MOVE-TE!");if(energy<=0){endGame();return}}
   player.x=clamp(player.x+vx*player.speed*step,player.radius,w-player.radius);
   player.y=clamp(player.y+vy*player.speed*step,player.radius,h-player.radius);
 
-  if(!boss&&!upgrade){
+  if(!boss&&!pendingUpgrade){
     spawnClock+=step;
     const interval=Math.max(19,72-level*2.1);
     if(spawnClock>=interval){spawnClock=0;spawnEnemy()}
@@ -287,12 +280,11 @@ function update(dt){
 
   if(boss){
     const a=Math.atan2(player.y-boss.y,player.x-boss.x);
-    boss.x=clamp(boss.x+Math.cos(a)*boss.speed*step, boss.radius,w-boss.radius);
-    boss.y=clamp(boss.y+Math.sin(a)*boss.speed*step, boss.radius,h-boss.radius);
+    boss.x=clamp(boss.x+Math.cos(a)*boss.speed*step,boss.radius,w-boss.radius);
+    boss.y=clamp(boss.y+Math.sin(a)*boss.speed*step,boss.radius,h-boss.radius);
     boss.attackTimer-=step;
     if(boss.attackTimer<=0){
       boss.attackTimer=Math.max(65,115-level*1.2);
-      // Pequena descarga em direção ao jogador: projéteis lentos e visíveis.
       const ba=Math.atan2(player.y-boss.y,player.x-boss.x);
       for(let k=-1;k<=1;k++){const aa=ba+k*.22;bullets.push({x:boss.x,y:boss.y,vx:Math.cos(aa)*3.1,vy:Math.sin(aa)*3.1,damage:0,hostile:true,life:110})}
     }
@@ -304,8 +296,20 @@ function update(dt){
   }
   for(const b of bullets){
     if(b.hostile){if(dist(player,b)<player.radius+5){b.life=0;damagePlayer(9)}continue}
-    if(boss&&dist(b,boss)<boss.radius+4){boss.hp-=b.damage;b.life=0;if(boss.hp<=0){score+=250+level*10;boss=null;bossBarContainer.style.display="none";spawnUpgrade();saveBest()}continue}
-    if(!boss){for(const e of enemies){if(e.hp>0&&dist(b,e)<e.radius+4){e.hp-=b.damage;b.life=0;if(e.hp<=0){score+=e.score;gems.push({x:e.x,y:e.y,value:e.xpValue});saveBest()}break}}}
+    if(boss&&dist(b,boss)<boss.radius+4){
+      boss.hp-=b.damage;b.life=0;
+      if(boss.hp<=0){score+=250+level*10;boss=null;bossBarContainer.style.display="none";level++;xp=0;maxXp=Math.floor(maxXp*1.32+8);spawnUpgradeModule();saveBest()}
+      continue;
+    }
+    if(!boss){
+      for(const e of enemies){
+        if(e.hp>0&&dist(b,e)<e.radius+4){
+          e.hp-=b.damage;b.life=0;
+          if(e.hp<=0){score+=e.score;gems.push({x:e.x,y:e.y,value:e.xpValue});saveBest()}
+          break;
+        }
+      }
+    }
   }
   enemies=enemies.filter(e=>e.hp>0);
   for(const g of gems){
@@ -313,12 +317,23 @@ function update(dt){
     if(d<player.radius+5){g.collected=true;xp+=g.value}
   }
   gems=gems.filter(g=>!g.collected);
-  for(const c of energyCells){c.life-=step;if(dist(player,c)<player.radius+c.radius){c.collected=true;energy=Math.min(100,energy+c.value);showAlert("ENERGIA RECUPERADA +"+c.value+"%");updateHUD()}}
+  for(const c of energyCells){c.life-=step;if(dist(player,c)<player.radius+c.radius){c.collected=true;energy=Math.min(100,energy+c.value);showAlert("🔋 ENERGIA RECUPERADA +"+c.value+"%");updateHUD()}}
   energyCells=energyCells.filter(c=>!c.collected&&c.life>0);
-  if(upgrade&&dist(player,upgrade)<player.radius+upgrade.radius){collectUpgrade();return}
-  if(!boss&&!upgrade&&xp>=maxXp){
+
+  // Apanhar o módulo de upgrade físico na arena
+  if(pendingUpgrade&&dist(player,pendingUpgrade)<player.radius+pendingUpgrade.radius){
+    pendingUpgrade.data.apply();
+    pendingUpgrade=null;
+    level++;
+    xp=0;
+    maxXp=Math.floor(maxXp*1.32+8);
+    updateHUD();
+    saveProgress();
+  }
+
+  if(!boss&&!pendingUpgrade&&xp>=maxXp){
     xp=maxXp;
-    if(level%5===0)spawnBoss();else{spawnUpgrade();collectUpgrade();return}
+    if(level%5===0)spawnBoss();else spawnUpgradeModule();
   }
   updateHUD();
 }
@@ -332,7 +347,29 @@ function render(){
   }
   for(const c of energyCells){ctx.save();ctx.fillStyle="#00f0ff";ctx.shadowColor="#00f0ff";ctx.shadowBlur=13;ctx.beginPath();ctx.arc(c.x,c.y,c.radius,0,Math.PI*2);ctx.fill();ctx.strokeStyle="#fff";ctx.stroke();ctx.restore()}
   for(const g of gems){ctx.save();ctx.fillStyle="#ffb703";ctx.shadowColor="#ffb703";ctx.shadowBlur=8;ctx.beginPath();ctx.arc(g.x,g.y,4,0,Math.PI*2);ctx.fill();ctx.restore()}
-  if(upgrade){ctx.save();ctx.fillStyle="#ffb703";ctx.shadowColor="#ffb703";ctx.shadowBlur=22;ctx.beginPath();ctx.arc(upgrade.x,upgrade.y,upgrade.radius,0,Math.PI*2);ctx.fill();ctx.strokeStyle="#fff";ctx.lineWidth=2;ctx.stroke();ctx.restore()}
+  
+  // Renderizar o Módulo Físico de Upgrade na Arena
+  if(pendingUpgrade){
+    ctx.save();
+    ctx.fillStyle="#ffb703";
+    ctx.shadowColor="#ffb703";
+    ctx.shadowBlur=22;
+    ctx.beginPath();ctx.arc(pendingUpgrade.x,pendingUpgrade.y,pendingUpgrade.radius,0,Math.PI*2);ctx.fill();
+    ctx.strokeStyle="#fff";ctx.lineWidth=2.5;ctx.stroke();
+    // Anel pulsante
+    ctx.strokeStyle="rgba(255,183,3,0.6)";
+    ctx.lineWidth=2;
+    ctx.beginPath();
+    ctx.arc(pendingUpgrade.x,pendingUpgrade.y,pendingUpgrade.radius+((Date.now()/6)%18),0,Math.PI*2);
+    ctx.stroke();
+    ctx.restore();
+
+    // Seta indicadora off-screen se estiver fora da vista
+    if(pendingUpgrade.x<0||pendingUpgrade.x>w||pendingUpgrade.y<0||pendingUpgrade.y>h){
+      renderOffScreenArrow(pendingUpgrade.x,pendingUpgrade.y,"#ffb703",w,h);
+    }
+  }
+
   for(const e of enemies){
     ctx.save();ctx.fillStyle=e.color;ctx.shadowColor=e.color;ctx.shadowBlur=9;ctx.beginPath();ctx.arc(e.x,e.y,e.radius,0,Math.PI*2);ctx.fill();ctx.restore();
     if(e.maxHp>1){ctx.fillStyle="rgba(255,255,255,.25)";ctx.fillRect(e.x-e.radius,e.y-e.radius-6,e.radius*2,3);ctx.fillStyle="#fff";ctx.fillRect(e.x-e.radius,e.y-e.radius-6,e.radius*2*clamp(e.hp/e.maxHp,0,1),3)}
@@ -344,6 +381,15 @@ function render(){
   }
   if(joystick.active){ctx.save();ctx.strokeStyle="rgba(0,240,255,.35)";ctx.lineWidth=2;ctx.beginPath();ctx.arc(joystick.startX,joystick.startY,48,0,Math.PI*2);ctx.stroke();ctx.fillStyle="rgba(0,240,255,.4)";ctx.beginPath();ctx.arc(joystick.x,joystick.y,19,0,Math.PI*2);ctx.fill();ctx.restore()}
 }
+function renderOffScreenArrow(targetX, targetY, color, w, h){
+  const margin=30;
+  const clampedX=Math.max(margin,Math.min(w-margin,targetX));
+  const clampedY=Math.max(margin,Math.min(h-margin,targetY));
+  ctx.save();
+  ctx.strokeStyle=color;ctx.fillStyle=color;ctx.lineWidth=2;
+  ctx.beginPath();ctx.arc(clampedX,clampedY,10,0,Math.PI*2);ctx.stroke();
+  ctx.restore();
+}
 function loop(now){
   if(!running)return;
   if(!lastFrame)lastFrame=now;
@@ -353,7 +399,11 @@ function loop(now){
 }
 function pointerDown(e){
   if(!running||joystick.active)return;
-  e.preventDefault();const r=cv.getBoundingClientRect(),x=e.clientX-r.left,y=e.clientY-r.top;
+  const r=cv.getBoundingClientRect(),x=e.clientX-r.left,y=e.clientY-r.top;
+  // Margem anti-gestos de 45px nas bordas laterais e inferiores para prevenir fechar a página no telemóvel
+  const margin=45;
+  if(x<margin||x>r.width-margin||y<margin||y>r.height-margin)return;
+  e.preventDefault();
   joystick.active=true;joystick.id=e.pointerId;joystick.startX=x;joystick.startY=y;joystick.x=x;joystick.y=y;joystick.dx=0;joystick.dy=0;
   try{cv.setPointerCapture(e.pointerId)}catch(err){}
 }
@@ -375,7 +425,7 @@ window.addEventListener("resize",resizeCanvas);
 window.addEventListener("orientationchange",()=>setTimeout(resizeCanvas,150));
 
 resizeCanvas();bestLbl.textContent=bestScore.toLocaleString("pt-PT");
-try{const p=JSON.parse(localStorage.getItem(PROGRESS_KEY)||"null");hasSavedProgress=!!(p&&p.version===2&&p.energy>0)}catch(e){}
+try{const p=JSON.parse(localStorage.getItem(PROGRESS_KEY)||"null");hasSavedProgress=!!(p&&p.version===3&&p.energy>0)}catch(e){}
 showMenu("start");
 </script>
 </body>
