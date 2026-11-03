@@ -41,7 +41,7 @@
   .btn { width:100%; padding:16px; border-radius:10px; background:#00f0ff; border:none; color:#03050c; font-weight:900; font-size:15px; cursor:pointer; box-shadow:0 0 20px rgba(0,240,255,0.5); margin-top:10px; }
   .btn:active { transform:scale(0.97); }
 
-  #infoAlert { position:absolute; top:15%; left:50%; transform:translateX(-50%); background:rgba(5,10,25,0.95); border:1px solid #ff0055; color:#ff0055; padding:8px 16px; border-radius:8px; font-size:13px; font-weight:800; pointer-events:none; opacity:0; transition:opacity 0.3s; z-index:20; box-shadow:0 0 15px rgba(255,0,85,0.4); text-align:center; }
+  #infoAlert { position:absolute; top:15%; left:50%; transform:translateX(-50%); background:rgba(5,10,25,0.95); border:1px solid #00f0ff; color:#00f0ff; padding:8px 16px; border-radius:8px; font-size:13px; font-weight:800; pointer-events:none; opacity:0; transition:opacity 0.3s; z-index:20; box-shadow:0 0 15px rgba(0,240,255,0.4); text-align:center; }
   #infoAlert.show { opacity:1; }
 </style>
 </head>
@@ -62,7 +62,7 @@
   <div id="screenOverlay">
     <div class="menu-card">
       <div class="title">GRID RUNNER</div>
-      <div class="subtitle" id="menuSubtitle">Modo Hardcore: Apanha os módulos físicos na arena para evoluir o armamento sem pausas!</div>
+      <div class="subtitle" id="menuSubtitle">Modo Hardcore: Recolhe módulos de armas e células de energia na arena para sobreviver!</div>
       <button class="btn" id="startBtn">INICIALIZAR SISTEMA</button>
     </div>
   </div>
@@ -129,8 +129,8 @@
   document.getElementById('dynamicAppleIcon').href = iconDataUrl;
 })();
 
-const SAVE_KEY = "gridRunnerBestScoreV15";
-const PROGRESS_KEY = "gridRunnerActiveProgressV5";
+const SAVE_KEY = "gridRunnerBestScoreV16";
+const PROGRESS_KEY = "gridRunnerActiveProgressV6";
 let bestScore = 0;
 try { const saved = localStorage.getItem(SAVE_KEY); if (saved) bestScore = parseInt(saved, 10) || 0; } catch(_) {}
 
@@ -143,7 +143,8 @@ const infoAlert = document.getElementById("infoAlert");
 bestLbl.textContent = bestScore;
 
 let running = false, score = 0, level = 1, xp = 0, maxXp = 45, energy = 100;
-let pendingUpgradeModule = null; // Módulo físico no chão gerado ao sincronizar
+let pendingUpgradeModule = null;
+let energyCells = []; // Array de células de energia na arena
 
 let idleTimer = 0;
 let isOverheating = false;
@@ -186,6 +187,7 @@ try {
       maxXp = p.maxXp || 45;
       energy = p.energy || 100;
       pendingUpgradeModule = p.pendingUpgradeModule || null;
+      energyCells = p.energyCells || [];
       if (p.player) {
         player.x = p.player.x || 0;
         player.y = p.player.y || 0;
@@ -211,7 +213,7 @@ function saveProgress() {
   if (!running) return;
   try {
     const data = {
-      score, level, xp, maxXp, energy, pendingUpgradeModule,
+      score, level, xp, maxXp, energy, pendingUpgradeModule, energyCells,
       player: { x: player.x, y: player.y, speed: player.speed, fireRate: player.fireRate, damage: player.damage, bulletCount: player.bulletCount, range: player.range, weaponType: player.weaponType }
     };
     localStorage.setItem(PROGRESS_KEY, JSON.stringify(data));
@@ -233,6 +235,7 @@ function startGame(resume = false){
     player.y = h / 2;
     score = 0; level = 1; xp = 0; maxXp = 45; energy = 100;
     pendingUpgradeModule = null;
+    energyCells = [];
     player.speed = 3.8; player.fireRate = 35; player.damage = 1; player.bulletCount = 1; player.range = 170; player.weaponType = "plasma";
     enemies = []; gems = []; bullets = [];
   } else {
@@ -324,7 +327,6 @@ function spawnEnemy(){
   enemies.push({ x, y, hp, maxHp: hp, speed: speed * (1 + level * 0.04), color, radius, type });
 }
 
-// Gera um módulo de upgrade físico aleatório para cair na arena
 function spawnUpgradeModule(){
   const w = cv.clientWidth, h = cv.clientHeight;
   const types = [
@@ -344,7 +346,19 @@ function spawnUpgradeModule(){
   showAlert(`🎁 MÓDULO DISPONÍVEL: ${chosen.title}!`);
 }
 
+// Faz nascer uma célula de energia azul na arena
+function spawnEnergyCell(){
+  const w = cv.clientWidth, h = cv.clientHeight;
+  energyCells.push({
+    x: Math.random() * (w - 60) + 30,
+    y: Math.random() * (h - 60) + 30,
+    radius: 12,
+    value: 25 // Recupera 25% de energia
+  });
+}
+
 let spawnTimer = 0;
+let energyCellTimer = 0;
 let saveTimer = 0;
 
 function update(){
@@ -356,6 +370,13 @@ function update(){
   if (saveTimer >= 300) {
     saveTimer = 0;
     saveProgress();
+  }
+
+  // Spawn periódico de células de energia na arena (a cada ~15 segundos / 900 frames)
+  energyCellTimer++;
+  if (energyCellTimer >= 900 && energyCells.length < 3) {
+    energyCellTimer = 0;
+    spawnEnergyCell();
   }
 
   let vx = 0, vy = 0;
@@ -482,7 +503,19 @@ function update(){
   });
   enemies = enemies.filter(e => e.hp > 0);
 
-  // Recolha de gemas de XP
+  // Recolha de células de energia na arena
+  energyCells.forEach(cell => {
+    const d = Math.hypot(player.x - cell.x, player.y - cell.y);
+    if (d < player.radius + cell.radius) {
+      cell.collected = true;
+      energy = Math.min(100, energy + cell.value);
+      showAlert(`🔋 ENERGIA RECARREGADA (+${cell.value}%)!`);
+      updateHUD();
+      saveProgress();
+    }
+  });
+  energyCells = energyCells.filter(c => !c.collected);
+
   if (!pendingUpgradeModule) {
     gems.forEach(g => {
       const d = Math.hypot(player.x - g.x, player.y - g.y);
@@ -494,7 +527,7 @@ function update(){
           xp += g.value;
           if (xp >= maxXp) {
             xp = maxXp;
-            spawnUpgradeModule(); // Faz nascer o módulo físico de upgrade na arena
+            spawnUpgradeModule();
           }
           updateHUD();
           saveProgress();
@@ -503,7 +536,6 @@ function update(){
     });
     gems = gems.filter(g => !g.collected);
   } else {
-    // Verificar se o jogador passou por cima do módulo de upgrade físico
     const d = Math.hypot(player.x - pendingUpgradeModule.x, player.y - pendingUpgradeModule.y);
     if (d < player.radius + pendingUpgradeModule.radius) {
       pendingUpgradeModule.data.apply();
@@ -543,6 +575,15 @@ function render(){
     ctx.stroke();
   }
 
+  // Desenhar células de energia azuis na arena
+  energyCells.forEach(cell => {
+    ctx.fillStyle = "#00f0ff";
+    ctx.shadowColor = "#00f0ff"; ctx.shadowBlur = 12;
+    ctx.beginPath(); ctx.arc(cell.x, cell.y, cell.radius, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = "#fff"; ctx.lineWidth = 2; ctx.stroke();
+    ctx.shadowBlur = 0;
+  });
+
   if (!pendingUpgradeModule) {
     gems.forEach(g => {
       ctx.fillStyle = "#ffb703";
@@ -552,7 +593,6 @@ function render(){
     });
   }
 
-  // Desenhar o Módulo de Upgrade Físico na arena
   if (pendingUpgradeModule) {
     ctx.fillStyle = "#ffb703";
     ctx.shadowColor = "#ffb703"; ctx.shadowBlur = 22;
@@ -560,7 +600,6 @@ function render(){
     ctx.strokeStyle = "#fff"; ctx.lineWidth = 2.5; ctx.stroke();
     ctx.shadowBlur = 0;
 
-    // Anel pulsante à volta do módulo
     ctx.strokeStyle = "rgba(255, 183, 3, 0.6)";
     ctx.lineWidth = 2;
     ctx.beginPath();
