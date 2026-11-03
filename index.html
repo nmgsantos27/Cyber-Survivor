@@ -32,6 +32,9 @@
   canvas#cv { display:block; width:100%; height:100%; touch-action:none; }
   #xpBarContainer { position:absolute; top:0; left:0; right:0; height:4px; background:rgba(0,240,255,0.1); z-index:6; }
   #xpBar { height:100%; background:#ffb703; width:0%; transition:width 0.1s linear; box-shadow:0 0 8px #ffb703; }
+
+  #bossBarContainer { position:absolute; top:6px; left:20px; right:20px; height:6px; background:rgba(255,0,85,0.2); border-radius:3px; z-index:7; display:none; overflow:hidden; border:1px solid #ff0055; }
+  #bossBar { height:100%; background:#ff0055; width:100%; box-shadow:0 0 10px #ff0055; }
   
   #screenOverlay { position:absolute; inset:0; background:rgba(3,5,12,0.94); backdrop-filter:blur(5px); display:flex; flex-direction:column; justify-content:center; align-items:center; padding:20px; z-index:30; text-align:center; }
   #screenOverlay.hidden { display:none; }
@@ -41,13 +44,14 @@
   .btn { width:100%; padding:16px; border-radius:10px; background:#00f0ff; border:none; color:#03050c; font-weight:900; font-size:15px; cursor:pointer; box-shadow:0 0 20px rgba(0,240,255,0.5); margin-top:10px; }
   .btn:active { transform:scale(0.97); }
 
-  #infoAlert { position:absolute; top:15%; left:50%; transform:translateX(-50%); background:rgba(5,10,25,0.95); border:1px solid #00f0ff; color:#00f0ff; padding:8px 16px; border-radius:8px; font-size:13px; font-weight:800; pointer-events:none; opacity:0; transition:opacity 0.3s; z-index:20; box-shadow:0 0 15px rgba(0,240,255,0.4); text-align:center; }
+  #infoAlert { position:absolute; top:18%; left:50%; transform:translateX(-50%); background:rgba(5,10,25,0.95); border:1px solid #00f0ff; color:#00f0ff; padding:8px 16px; border-radius:8px; font-size:13px; font-weight:800; pointer-events:none; opacity:0; transition:opacity 0.3s; z-index:20; box-shadow:0 0 15px rgba(0,240,255,0.4); text-align:center; }
   #infoAlert.show { opacity:1; }
 </style>
 </head>
 <body>
 <div id="app">
   <div id="xpBarContainer"><div id="xpBar"></div></div>
+  <div id="bossBarContainer"><div id="bossBar"></div></div>
   <div id="hud">
     <div class="hstat score"><div class="val" id="scoreLbl">0</div><div class="lbl">PONTOS</div></div>
     <div class="hstat best"><div class="val" id="bestLbl">0</div><div class="lbl">RECORDE</div></div>
@@ -62,7 +66,7 @@
   <div id="screenOverlay">
     <div class="menu-card">
       <div class="title">GRID RUNNER</div>
-      <div class="subtitle" id="menuSubtitle">Modo Hardcore Dinâmico: Upgrades escalam com o nível e as células de energia desaparecem em segundos!</div>
+      <div class="subtitle" id="menuSubtitle">Modo Hardcore Definitivo: Enfrenta Bosses a cada 5 níveis, apanha células temporizadas e sobrevive!</div>
       <button class="btn" id="startBtn">INICIALIZAR SISTEMA</button>
     </div>
   </div>
@@ -129,14 +133,15 @@
   document.getElementById('dynamicAppleIcon').href = iconDataUrl;
 })();
 
-const SAVE_KEY = "gridRunnerBestScoreV18";
-const PROGRESS_KEY = "gridRunnerActiveProgressV8";
+const SAVE_KEY = "gridRunnerBestScoreV19";
+const PROGRESS_KEY = "gridRunnerActiveProgressV9";
 let bestScore = 0;
 try { const saved = localStorage.getItem(SAVE_KEY); if (saved) bestScore = parseInt(saved, 10) || 0; } catch(_) {}
 
 const cv = document.getElementById("cv"), ctx = cv.getContext("2d");
 const scoreLbl = document.getElementById("scoreLbl"), bestLbl = document.getElementById("bestLbl"), levelLbl = document.getElementById("levelLbl"), energyLbl = document.getElementById("energyLbl");
-const xpBar = document.getElementById("xpBar"), screenOverlay = document.getElementById("screenOverlay"), startBtn = document.getElementById("startBtn");
+const xpBar = document.getElementById("xpBar"), bossBarContainer = document.getElementById("bossBarContainer"), bossBar = document.getElementById("bossBar");
+const screenOverlay = document.getElementById("screenOverlay"), startBtn = document.getElementById("startBtn");
 const menuSubtitle = document.getElementById("menuSubtitle");
 const infoAlert = document.getElementById("infoAlert");
 
@@ -145,6 +150,7 @@ bestLbl.textContent = bestScore;
 let running = false, score = 0, level = 1, xp = 0, maxXp = 45, energy = 100;
 let pendingUpgradeModule = null;
 let energyCells = [];
+let currentBoss = null; // Objeto Boss ativo
 
 let idleTimer = 0;
 let isOverheating = false;
@@ -236,6 +242,8 @@ function startGame(resume = false){
     score = 0; level = 1; xp = 0; maxXp = 45; energy = 100;
     pendingUpgradeModule = null;
     energyCells = [];
+    currentBoss = null;
+    bossBarContainer.style.display = "none";
     player.speed = 3.8; player.fireRate = 35; player.damage = 1; player.bulletCount = 1; player.range = 170; player.weaponType = "plasma";
     enemies = []; gems = []; bullets = [];
   } else {
@@ -307,9 +315,13 @@ function updateHUD(){
   levelLbl.textContent = "Nv. " + level;
   xpBar.style.width = Math.min(100, (xp / maxXp) * 100) + "%";
   energyLbl.textContent = Math.max(0, energy) + "%";
+  if (currentBoss) {
+    bossBar.style.width = Math.max(0, (currentBoss.hp / currentBoss.maxHp) * 100) + "%";
+  }
 }
 
 function spawnEnemy(){
+  if (currentBoss) return; // Não nascem inimigos normais enquanto o Boss está ativo
   const w = cv.clientWidth, h = cv.clientHeight;
   const edge = Math.floor(Math.random() * 4);
   let x, y;
@@ -327,10 +339,24 @@ function spawnEnemy(){
   enemies.push({ x, y, hp, maxHp: hp, speed: speed * (1 + level * 0.04), color, radius, type });
 }
 
-// Módulos com bónus progressivos baseados no nível atual do jogador
+function spawnBoss(){
+  const w = cv.clientWidth, h = cv.clientHeight;
+  const bossHp = 40 + (level * 15);
+  currentBoss = {
+    x: w / 2, y: -50,
+    radius: 28,
+    hp: bossHp,
+    maxHp: bossHp,
+    speed: 1.6 + (level * 0.02),
+    color: "#ff0055"
+  };
+  bossBarContainer.style.display = "block";
+  showAlert("⚠️ ALERTA: GIGABYTE BOSS DETETADO NA ARENA!");
+}
+
 function spawnUpgradeModule(){
   const w = cv.clientWidth, h = cv.clientHeight;
-  const multiplier = 1 + (level * 0.05); // O bónus cresce progressivamente a cada nível
+  const multiplier = 1 + (level * 0.05);
   
   const types = [
     { title: `⚡ Overclock Avançado [Nv.${level}]`, apply: () => { player.fireRate = Math.max(8, player.fireRate * 0.82); } },
@@ -357,7 +383,7 @@ function spawnEnergyCell(){
     y: Math.random() * (h - 60) + 30,
     radius: 12,
     value: 25,
-    life: 480 // Desaparece ao fim de 8 segundos
+    life: 480
   });
 }
 
@@ -431,19 +457,48 @@ function update(){
   player.x = Math.max(player.radius, Math.min(w - player.radius, player.x));
   player.y = Math.max(player.radius, Math.min(h - player.radius, player.y));
 
-  spawnTimer++;
-  if (spawnTimer >= Math.max(15, 55 - level * 3)) {
-    spawnTimer = 0;
-    spawnEnemy();
+  // Lógica de Boss
+  if (currentBoss) {
+    const angle = Math.atan2(player.y - currentBoss.y, player.x - currentBoss.x);
+    currentBoss.x += Math.cos(angle) * currentBoss.speed;
+    currentBoss.y += Math.sin(angle) * currentBoss.speed;
+
+    if (Math.hypot(currentBoss.x - player.x, currentBoss.y - player.y) < currentBoss.radius + player.radius) {
+      energy -= 50; // Boss causa dano massivo de colisão
+      updateHUD();
+      if (energy <= 0) {
+        running = false;
+        clearProgress();
+        hasSavedProgress = false;
+        if (score > bestScore) {
+          bestScore = score;
+          try { localStorage.setItem(SAVE_KEY, bestScore.toString()); } catch(_) {}
+        }
+        screenOverlay.classList.remove("hidden");
+        document.querySelector(".title").textContent = "FALHA DE SISTEMA";
+        document.querySelector(".subtitle").innerHTML = `Pontuação: <b>${score}</b> | Recorde: <b>${bestScore}</b><br>Nível atingido: ${level}`;
+        startBtn.textContent = "TENTAR DE NOVO";
+      }
+    }
+  } else {
+    spawnTimer++;
+    if (spawnTimer >= Math.max(15, 55 - level * 3)) {
+      spawnTimer = 0;
+      spawnEnemy();
+    }
   }
 
   player.fireTimer++;
   if (player.fireTimer >= player.fireRate) {
     let target = null, minDist = player.range;
-    enemies.forEach(e => {
-      const d = Math.hypot(e.x - player.x, e.y - player.y);
-      if (d < minDist) { minDist = d; target = e; }
-    });
+    if (currentBoss) {
+      target = currentBoss;
+    } else {
+      enemies.forEach(e => {
+        const d = Math.hypot(e.x - player.x, e.y - player.y);
+        if (d < minDist) { minDist = d; target = e; }
+      });
+    }
 
     if (target) {
       player.fireTimer = 0;
@@ -491,19 +546,35 @@ function update(){
   });
 
   bullets.forEach(b => {
-    enemies.forEach(e => {
-      if (e.hp > 0 && Math.hypot(e.x - b.x, e.y - b.y) < e.radius + 4) {
-        e.hp -= b.dmg;
+    if (currentBoss) {
+      if (Math.hypot(currentBoss.x - b.x, currentBoss.y - b.y) < currentBoss.radius + 4) {
+        currentBoss.hp -= b.dmg;
         b.life = 0;
-        if (e.hp <= 0) {
-          score += 15;
+        updateHUD();
+        if (currentBoss.hp <= 0) {
+          score += 250;
           if (score > bestScore) bestScore = score;
-          if (!pendingUpgradeModule) {
-            gems.push({ x: e.x, y: e.y, value: 10 });
-          }
+          showAlert("🏆 BOSS ELIMINADO! SISTEMA ESTABILIZADO!");
+          bossBarContainer.style.display = "none";
+          currentBoss = null;
+          spawnUpgradeModule(); // Recompensa com módulo após derrotar o boss
         }
       }
-    });
+    } else {
+      enemies.forEach(e => {
+        if (e.hp > 0 && Math.hypot(e.x - b.x, e.y - b.y) < e.radius + 4) {
+          e.hp -= b.dmg;
+          b.life = 0;
+          if (e.hp <= 0) {
+            score += 15;
+            if (score > bestScore) bestScore = score;
+            if (!pendingUpgradeModule) {
+              gems.push({ x: e.x, y: e.y, value: 10 });
+            }
+          }
+        }
+      });
+    }
   });
   enemies = enemies.filter(e => e.hp > 0);
 
@@ -520,7 +591,7 @@ function update(){
   });
   energyCells = energyCells.filter(c => !c.collected && c.life > 0);
 
-  if (!pendingUpgradeModule) {
+  if (!pendingUpgradeModule && !currentBoss) {
     gems.forEach(g => {
       const d = Math.hypot(player.x - g.x, player.y - g.y);
       if (d < 65) {
@@ -531,7 +602,11 @@ function update(){
           xp += g.value;
           if (xp >= maxXp) {
             xp = maxXp;
-            spawnUpgradeModule();
+            if (level % 5 === 0) {
+              spawnBoss(); // A cada 5 níveis surge um Boss em vez de upgrade direto
+            } else {
+              spawnUpgradeModule();
+            }
           }
           updateHUD();
           saveProgress();
@@ -539,7 +614,7 @@ function update(){
       }
     });
     gems = gems.filter(g => !g.collected);
-  } else {
+  } else if (pendingUpgradeModule) {
     const d = Math.hypot(player.x - pendingUpgradeModule.x, player.y - pendingUpgradeModule.y);
     if (d < player.radius + pendingUpgradeModule.radius) {
       pendingUpgradeModule.data.apply();
@@ -559,8 +634,8 @@ function render(){
   ctx.clearRect(0, 0, w, h);
   ctx.fillStyle = "#03050c"; ctx.fillRect(0, 0, w, h);
 
-  if (isOverheating) {
-    ctx.strokeStyle = "rgba(255, 0, 85, 0.15)";
+  if (isOverheating || energy < 25) {
+    ctx.strokeStyle = "rgba(255, 0, 85, 0.2)";
     ctx.lineWidth = 2;
   } else {
     ctx.strokeStyle = "rgba(0,240,255,0.03)";
@@ -579,6 +654,16 @@ function render(){
     ctx.stroke();
   }
 
+  // Renderizar Boss se estiver ativo
+  if (currentBoss) {
+    ctx.fillStyle = currentBoss.color;
+    ctx.shadowColor = currentBoss.color; ctx.shadowBlur = 20;
+    ctx.beginPath(); ctx.arc(currentBoss.x, currentBoss.y, currentBoss.radius, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = "#fff"; ctx.lineWidth = 3; ctx.stroke();
+    ctx.shadowBlur = 0;
+  }
+
+  // Renderizar células de energia e setas indicadoras off-screen
   energyCells.forEach(cell => {
     const alpha = cell.life < 120 && Math.floor(cell.life / 10) % 2 === 0 ? 0.3 : 1.0;
     ctx.globalAlpha = alpha;
@@ -588,9 +673,14 @@ function render(){
     ctx.strokeStyle = "#fff"; ctx.lineWidth = 2; ctx.stroke();
     ctx.shadowBlur = 0;
     ctx.globalAlpha = 1.0;
+
+    // Seta indicadora nas bordas se estiver fora do ecrã visível
+    if (cell.x < 0 || cell.x > w || cell.y < 0 || cell.y > h) {
+      renderOffScreenArrow(cell.x, cell.y, "#00f0ff", w, h);
+    }
   });
 
-  if (!pendingUpgradeModule) {
+  if (!pendingUpgradeModule && !currentBoss) {
     gems.forEach(g => {
       ctx.fillStyle = "#ffb703";
       ctx.shadowColor = "#ffb703"; ctx.shadowBlur = 6;
@@ -611,6 +701,10 @@ function render(){
     ctx.beginPath();
     ctx.arc(pendingUpgradeModule.x, pendingUpgradeModule.y, pendingUpgradeModule.radius + ((Date.now() / 6) % 18), 0, Math.PI * 2);
     ctx.stroke();
+
+    if (pendingUpgradeModule.x < 0 || pendingUpgradeModule.x > w || pendingUpgradeModule.y < 0 || pendingUpgradeModule.y > h) {
+      renderOffScreenArrow(pendingUpgradeModule.x, pendingUpgradeModule.y, "#ffb703", w, h);
+    }
   }
 
   enemies.forEach(e => {
@@ -641,6 +735,20 @@ function render(){
     ctx.fillStyle = "rgba(0,240,255,0.4)";
     ctx.beginPath(); ctx.arc(joystick.curX, joystick.curY, 20, 0, Math.PI * 2); ctx.fill();
   }
+}
+
+// Função auxiliar para desenhar setas nas bordas do ecrã para itens fora de vista
+function renderOffScreenArrow(targetX, targetY, color, w, h) {
+  const margin = 30;
+  const clampedX = Math.max(margin, Math.min(w - margin, targetX));
+  const clampedY = Math.max(margin, Math.min(h - margin, targetY));
+
+  ctx.strokeStyle = color;
+  ctx.fillStyle = color;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(clampedX, clampedY, 10, 0, Math.PI * 2);
+  ctx.stroke();
 }
 
 let lastTime = 0;
