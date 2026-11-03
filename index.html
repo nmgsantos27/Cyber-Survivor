@@ -46,10 +46,6 @@
 
   #infoAlert { position:absolute; top:18%; left:50%; transform:translateX(-50%); background:rgba(5,10,25,0.95); border:1px solid #00f0ff; color:#00f0ff; padding:8px 16px; border-radius:8px; font-size:13px; font-weight:800; pointer-events:none; opacity:0; transition:opacity 0.3s; z-index:20; box-shadow:0 0 15px rgba(0,240,255,0.4); text-align:center; }
   #infoAlert.show { opacity:1; }
-
-  /* Mensagem de Alerta de Chegada do Boss */
-  #bossBanner { position:absolute; top:40%; left:50%; transform:translate(-50%, -50%) scale(0.8); background:rgba(255,0,85,0.92); border:2px solid #fff; color:#fff; padding:16px 24px; border-radius:12px; font-size:16px; font-weight:900; pointer-events:none; opacity:0; transition:all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); z-index:25; box-shadow:0 0 30px rgba(255,0,85,0.8); text-align:center; letter-spacing:1px; }
-  #bossBanner.show { opacity:1; transform:translate(-50%, -50%) scale(1); }
 </style>
 </head>
 <body>
@@ -65,13 +61,12 @@
   <div id="gamewrap">
     <canvas id="cv"></canvas>
     <div id="infoAlert"></div>
-    <div id="bossBanner">⚠️ ALERTA DE AMEAÇA CRÍTICA<br><span style="font-size:20px; color:#ffb703;">GIGABYTE BOSS APROXIMA-SE!</span></div>
   </div>
 
   <div id="screenOverlay">
     <div class="menu-card">
       <div class="title">GRID RUNNER</div>
-      <div class="subtitle" id="menuSubtitle">Modo Hardcore Definitivo: Bosses com alerta áudio/háptico a cada 5 níveis, células temporizadas e sobrevivência!</div>
+      <div class="subtitle" id="menuSubtitle">Modo Hardcore Definitivo: Vibração ao perder energia, Bosses limpos na arena e sobrevivência total!</div>
       <button class="btn" id="startBtn">INICIALIZAR SISTEMA</button>
     </div>
   </div>
@@ -79,31 +74,6 @@
 
 <script>
 "use strict";
-
-// Gerador de Som Sintetizado (Web Audio API)
-let audioCtx = null;
-function playBossAlertSound() {
-  try {
-    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    if (audioCtx.state === 'suspended') audioCtx.resume();
-
-    const osc = audioCtx.createOscillator();
-    const gain = audioCtx.createGain();
-    
-    osc.type = 'sawtooth';
-    osc.frequency.setValueAtTime(140, audioCtx.currentTime);
-    osc.frequency.exponentialRampToValueAtTime(40, audioCtx.currentTime + 0.6);
-
-    gain.gain.setValueAtTime(0.25, audioCtx.currentTime); // Volume suave para não irritar
-    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.6);
-
-    osc.connect(gain);
-    gain.connect(audioCtx.destination);
-
-    osc.start();
-    osc.stop(audioCtx.currentTime + 0.6);
-  } catch(_) {}
-}
 
 (function generateAppIcon() {
   const iconCv = document.createElement('canvas');
@@ -163,8 +133,8 @@ function playBossAlertSound() {
   document.getElementById('dynamicAppleIcon').href = iconDataUrl;
 })();
 
-const SAVE_KEY = "gridRunnerBestScoreV20";
-const PROGRESS_KEY = "gridRunnerActiveProgressV10";
+const SAVE_KEY = "gridRunnerBestScoreV21";
+const PROGRESS_KEY = "gridRunnerActiveProgressV11";
 let bestScore = 0;
 try { const saved = localStorage.getItem(SAVE_KEY); if (saved) bestScore = parseInt(saved, 10) || 0; } catch(_) {}
 
@@ -173,7 +143,7 @@ const scoreLbl = document.getElementById("scoreLbl"), bestLbl = document.getElem
 const xpBar = document.getElementById("xpBar"), bossBarContainer = document.getElementById("bossBarContainer"), bossBar = document.getElementById("bossBar");
 const screenOverlay = document.getElementById("screenOverlay"), startBtn = document.getElementById("startBtn");
 const menuSubtitle = document.getElementById("menuSubtitle");
-const infoAlert = document.getElementById("infoAlert"), bossBanner = document.getElementById("bossBanner");
+const infoAlert = document.getElementById("infoAlert");
 
 bestLbl.textContent = bestScore;
 
@@ -198,15 +168,11 @@ function showAlert(msg) {
   alertTimer = setTimeout(() => infoAlert.classList.remove("show"), 2500);
 }
 
-function triggerBossBanner() {
-  bossBanner.classList.add("show");
-  playBossAlertSound();
+// Função para disparar vibração tátil ao perder energia
+function triggerHapticFeedback() {
   if (navigator.vibrate) {
-    navigator.vibrate([100, 50, 100, 50, 200]); // Padrão de vibração suave
+    try { navigator.vibrate(60); } catch(_) {}
   }
-  setTimeout(() => {
-    bossBanner.classList.remove("show");
-  }, 2800);
 }
 
 function resizeCanvas(){
@@ -392,7 +358,8 @@ function spawnBoss(){
     color: "#ff0055"
   };
   bossBarContainer.style.display = "block";
-  triggerBossBanner();
+  showAlert("⚠️ AMEAÇA DETETADA: GIGABYTE BOSS!");
+  if (navigator.vibrate) navigator.vibrate([120, 80, 120]);
 }
 
 function spawnUpgradeModule(){
@@ -470,6 +437,7 @@ function update(){
       isOverheating = true;
       if (idleTimer % 60 === 0) {
         energy -= 10;
+        triggerHapticFeedback();
         showAlert("🔥 ALERTA: SOBREAQUECIMENTO DA GRELHA (-10% ENERGIA)!");
         updateHUD();
         if (energy <= 0) {
@@ -505,6 +473,7 @@ function update(){
 
     if (Math.hypot(currentBoss.x - player.x, currentBoss.y - player.y) < currentBoss.radius + player.radius) {
       energy -= 50;
+      triggerHapticFeedback();
       updateHUD();
       if (energy <= 0) {
         running = false;
@@ -567,6 +536,7 @@ function update(){
     if (Math.hypot(e.x - player.x, e.y - player.y) < e.radius + player.radius) {
       const collisionDamage = level >= 10 ? 34 + (level - 10) * 8 : 34;
       energy -= collisionDamage;
+      triggerHapticFeedback();
       e.hp = 0;
       updateHUD();
       if (energy <= 0) {
