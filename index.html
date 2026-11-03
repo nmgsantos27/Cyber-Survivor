@@ -47,6 +47,9 @@
   .upgrade-opt:active { background:#142450; transform:scale(0.98); }
   .upgrade-opt .u-title { font-size:15px; font-weight:900; color:#ffb703; }
   .upgrade-opt .u-desc { font-size:11px; color:#7a9cb8; font-weight:600; margin-top:3px; }
+
+  #infoAlert { position:absolute; top:15%; left:50%; transform:translateX(-50%); background:rgba(5,10,25,0.95); border:1px solid #9d4edd; color:#9d4edd; padding:8px 16px; border-radius:8px; font-size:13px; font-weight:800; pointer-events:none; opacity:0; transition:opacity 0.3s; z-index:20; box-shadow:0 0 15px rgba(157,78,221,0.4); text-align:center; }
+  #infoAlert.show { opacity:1; }
 </style>
 </head>
 <body>
@@ -60,12 +63,13 @@
   </div>
   <div id="gamewrap">
     <canvas id="cv"></canvas>
+    <div id="infoAlert"></div>
   </div>
 
   <div id="screenOverlay">
     <div class="menu-card">
       <div class="title">GRID RUNNER</div>
-      <div class="subtitle">Modo Hardcore: Sem corações na arena. Sobrevive às vagas de bugs usando apenas os teus reflexos e melhorias.</div>
+      <div class="subtitle">Modo Hardcore: Quando a barra encher, tens de ir apanhar o núcleo de sincronização na arena para desbloquear o upgrade!</div>
       <button class="btn" id="startBtn">INICIALIZAR SISTEMA</button>
     </div>
   </div>
@@ -82,7 +86,6 @@
 <script>
 "use strict";
 
-// Gerador Automático de Ícone App para Telemóvel
 (function generateAppIcon() {
   const iconCv = document.createElement('canvas');
   iconCv.width = 512; iconCv.height = 512;
@@ -141,7 +144,7 @@
   document.getElementById('dynamicAppleIcon').href = iconDataUrl;
 })();
 
-const SAVE_KEY = "gridRunnerBestScoreV9";
+const SAVE_KEY = "gridRunnerBestScoreV10";
 let bestScore = 0;
 try { const saved = localStorage.getItem(SAVE_KEY); if (saved) bestScore = parseInt(saved, 10) || 0; } catch(_) {}
 
@@ -149,14 +152,26 @@ const cv = document.getElementById("cv"), ctx = cv.getContext("2d");
 const scoreLbl = document.getElementById("scoreLbl"), bestLbl = document.getElementById("bestLbl"), levelLbl = document.getElementById("levelLbl"), lifeLbl = document.getElementById("lifeLbl");
 const xpBar = document.getElementById("xpBar"), screenOverlay = document.getElementById("screenOverlay"), startBtn = document.getElementById("startBtn");
 const levelUpModal = document.getElementById("levelUpModal"), upgradeList = document.getElementById("upgradeList");
+const infoAlert = document.getElementById("infoAlert");
 
 bestLbl.textContent = bestScore;
 
 let running = false, score = 0, level = 1, xp = 0, maxXp = 45, lives = 3;
+let waitingForSync = false; // Estado de espera para apanhar o núcleo de sincronização
+let syncCore = null; // Coordenadas do núcleo na arena
+
 let player = { x: 0, y: 0, radius: 14, speed: 3.8, fireRate: 35, fireTimer: 0, damage: 1, bulletCount: 1, range: 170 };
 let enemies = [], gems = [], bullets = [];
 let joystick = { active: false, id: null, startX: 0, startY: 0, curX: 0, curY: 0, dx: 0, dy: 0 };
 let keys = {};
+
+let alertTimer = 0;
+function showAlert(msg) {
+  infoAlert.textContent = msg;
+  infoAlert.classList.add("show");
+  clearTimeout(alertTimer);
+  alertTimer = setTimeout(() => infoAlert.classList.remove("show"), 2200);
+}
 
 function resizeCanvas(){
   const wrap = document.getElementById("gamewrap");
@@ -176,6 +191,7 @@ function startGame(){
   const w = cv.clientWidth, h = cv.clientHeight;
   player.x = w / 2; player.y = h / 2;
   score = 0; level = 1; xp = 0; maxXp = 45; lives = 3;
+  waitingForSync = false; syncCore = null;
   player.speed = 3.8; player.fireRate = 35; player.damage = 1; player.bulletCount = 1; player.range = 170;
   enemies = []; gems = []; bullets = [];
   screenOverlay.classList.add("hidden");
@@ -370,32 +386,58 @@ function update(){
         if (e.hp <= 0) {
           score += 15;
           if (score > bestScore) bestScore = score;
-          gems.push({ x: e.x, y: e.y, value: 10 });
+          // Se já estiver à espera de sincronizar, as gemas continuam a dar pontos mas não XP extra
+          if (!waitingForSync) {
+            gems.push({ x: e.x, y: e.y, value: 10 });
+          }
         }
       }
     });
   });
   enemies = enemies.filter(e => e.hp > 0);
 
-  gems.forEach(g => {
-    const d = Math.hypot(player.x - g.x, player.y - g.y);
-    if (d < 65) {
-      g.x += (player.x - g.x) * 0.15;
-      g.y += (player.y - g.y) * 0.15;
-      if (d < player.radius + 6) {
-        g.collected = true;
-        xp += g.value;
-        if (xp >= maxXp) {
-          xp -= maxXp;
-          level++;
-          maxXp = Math.floor(maxXp * 1.5);
-          triggerLevelUp();
+  // Se não estiver à espera de sincronizar, recolhe gemas normalmente
+  if (!waitingForSync) {
+    gems.forEach(g => {
+      const d = Math.hypot(player.x - g.x, player.y - g.y);
+      if (d < 65) {
+        g.x += (player.x - g.x) * 0.15;
+        g.y += (player.y - g.y) * 0.15;
+        if (d < player.radius + 6) {
+          g.collected = true;
+          xp += g.value;
+          if (xp >= maxXp) {
+            xp = maxXp; // Trava a barra no máximo
+            waitingForSync = true;
+            // Cria o núcleo de sincronização num sítio aleatório da arena
+            syncCore = {
+              x: Math.random() * (w - 80) + 40,
+              y: Math.random() * (h - 80) + 40,
+              radius: 16
+            };
+            showAlert("⚠️ NÚCLEO DE SINCRONIZAÇÃO DETETADO NA ARENA!");
+          }
+          updateHUD();
         }
+      }
+    });
+    gems = gems.filter(g => !g.collected);
+  } else {
+    // A aguardar que o jogador vá apanhar o núcleo de sincronização
+    if (syncCore) {
+      const d = Math.hypot(player.x - syncCore.x, player.y - syncCore.y);
+      if (d < player.radius + syncCore.radius) {
+        // Apanhou o núcleo! Avança de nível e abre o upgrade
+        waitingForSync = false;
+        syncCore = null;
+        level++;
+        maxXp = Math.floor(maxXp * 1.5);
+        xp = 0;
         updateHUD();
+        triggerLevelUp();
       }
     }
-  });
-  gems = gems.filter(g => !g.collected);
+  }
 }
 
 function render(){
@@ -408,12 +450,31 @@ function render(){
   for (let x = 0; x < w; x += step) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke(); }
   for (let y = 0; y < h; y += step) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke(); }
 
-  gems.forEach(g => {
-    ctx.fillStyle = "#ffb703";
-    ctx.shadowColor = "#ffb703"; ctx.shadowBlur = 6;
-    ctx.beginPath(); ctx.arc(g.x, g.y, 4, 0, Math.PI * 2); ctx.fill();
+  // Desenhar gemas de XP (só se não estiver à espera de sincronizar)
+  if (!waitingForSync) {
+    gems.forEach(g => {
+      ctx.fillStyle = "#ffb703";
+      ctx.shadowColor = "#ffb703"; ctx.shadowBlur = 6;
+      ctx.beginPath(); ctx.arc(g.x, g.y, 4, 0, Math.PI * 2); ctx.fill();
+      ctx.shadowBlur = 0;
+    });
+  }
+
+  // Desenhar o Núcleo de Sincronização se a barra estiver cheia
+  if (waitingForSync && syncCore) {
+    ctx.fillStyle = "#9d4edd";
+    ctx.shadowColor = "#9d4edd"; ctx.shadowBlur = 18;
+    ctx.beginPath(); ctx.arc(syncCore.x, syncCore.y, syncCore.radius, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = "#fff"; ctx.lineWidth = 2.5; ctx.stroke();
     ctx.shadowBlur = 0;
-  });
+
+    // Efeito de pulso visual à volta do núcleo
+    ctx.strokeStyle = "rgba(157, 78, 221, 0.5)";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(syncCore.x, syncCore.y, syncCore.radius + ((Date.now() / 8) % 15), 0, Math.PI * 2);
+    ctx.stroke();
+  }
 
   enemies.forEach(e => {
     ctx.fillStyle = e.color;
