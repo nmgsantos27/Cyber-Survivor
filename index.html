@@ -47,9 +47,6 @@
   .upgrade-opt:active { background:#142450; transform:scale(0.98); }
   .upgrade-opt .u-title { font-size:15px; font-weight:900; color:#ffb703; }
   .upgrade-opt .u-desc { font-size:11px; color:#7a9cb8; font-weight:600; margin-top:3px; }
-
-  #infoAlert { position:absolute; top:15%; left:50%; transform:translateX(-50%); background:rgba(5,10,25,0.95); border:1px solid #ff0055; color:#ff0055; padding:8px 16px; border-radius:8px; font-size:13px; font-weight:800; pointer-events:none; opacity:0; transition:opacity 0.3s; z-index:20; box-shadow:0 0 15px rgba(255,0,85,0.4); text-align:center; }
-  #infoAlert.show { opacity:1; }
 </style>
 </head>
 <body>
@@ -63,21 +60,20 @@
   </div>
   <div id="gamewrap">
     <canvas id="cv"></canvas>
-    <div id="infoAlert"></div>
   </div>
 
   <div id="screenOverlay">
     <div class="menu-card">
       <div class="title">GRID RUNNER</div>
-      <div class="subtitle" id="menuSub">Usa o joystick virtual no ecrã para manobrar o núcleo. Apanha dados para evoluir e corações na arena para recuperar vida!</div>
+      <div class="subtitle">Modo Hardcore: Sem corações na arena. Sobrevive às vagas de bugs usando apenas os teus reflexos e melhorias.</div>
       <button class="btn" id="startBtn">INICIALIZAR SISTEMA</button>
     </div>
   </div>
 
   <div id="levelUpModal">
     <div class="menu-card" style="text-align:center;">
-      <div class="title" style="color:#ffb703;" id="modalTitle">⚡ UPGRADE DE SISTEMA</div>
-      <div class="subtitle" id="modalSub">Escolhe um módulo de melhoria:</div>
+      <div class="title" style="color:#ffb703;">⚡ UPGRADE DE SISTEMA</div>
+      <div class="subtitle">Escolhe um módulo de melhoria:</div>
       <div id="upgradeList" style="margin-top:10px;"></div>
     </div>
   </div>
@@ -145,7 +141,7 @@
   document.getElementById('dynamicAppleIcon').href = iconDataUrl;
 })();
 
-const SAVE_KEY = "gridRunnerBestScoreV8";
+const SAVE_KEY = "gridRunnerBestScoreV9";
 let bestScore = 0;
 try { const saved = localStorage.getItem(SAVE_KEY); if (saved) bestScore = parseInt(saved, 10) || 0; } catch(_) {}
 
@@ -153,23 +149,14 @@ const cv = document.getElementById("cv"), ctx = cv.getContext("2d");
 const scoreLbl = document.getElementById("scoreLbl"), bestLbl = document.getElementById("bestLbl"), levelLbl = document.getElementById("levelLbl"), lifeLbl = document.getElementById("lifeLbl");
 const xpBar = document.getElementById("xpBar"), screenOverlay = document.getElementById("screenOverlay"), startBtn = document.getElementById("startBtn");
 const levelUpModal = document.getElementById("levelUpModal"), upgradeList = document.getElementById("upgradeList");
-const infoAlert = document.getElementById("infoAlert");
 
 bestLbl.textContent = bestScore;
 
 let running = false, score = 0, level = 1, xp = 0, maxXp = 45, lives = 3;
 let player = { x: 0, y: 0, radius: 14, speed: 3.8, fireRate: 35, fireTimer: 0, damage: 1, bulletCount: 1, range: 170 };
-let enemies = [], gems = [], hearts = [], bullets = [];
+let enemies = [], gems = [], bullets = [];
 let joystick = { active: false, id: null, startX: 0, startY: 0, curX: 0, curY: 0, dx: 0, dy: 0 };
 let keys = {};
-
-let alertTimer = 0;
-function showAlert(msg) {
-  infoAlert.textContent = msg;
-  infoAlert.classList.add("show");
-  clearTimeout(alertTimer);
-  alertTimer = setTimeout(() => infoAlert.classList.remove("show"), 1800);
-}
 
 function resizeCanvas(){
   const wrap = document.getElementById("gamewrap");
@@ -190,7 +177,7 @@ function startGame(){
   player.x = w / 2; player.y = h / 2;
   score = 0; level = 1; xp = 0; maxXp = 45; lives = 3;
   player.speed = 3.8; player.fireRate = 35; player.damage = 1; player.bulletCount = 1; player.range = 170;
-  enemies = []; gems = []; hearts = []; bullets = [];
+  enemies = []; gems = []; bullets = [];
   screenOverlay.classList.add("hidden");
   running = true;
   updateHUD();
@@ -296,7 +283,6 @@ function triggerLevelUp(){
 }
 
 let spawnTimer = 0;
-let heartSpawnTimer = 0;
 
 function update(){
   if (!running) return;
@@ -325,16 +311,6 @@ function update(){
   if (spawnTimer >= Math.max(15, 55 - level * 3)) {
     spawnTimer = 0;
     spawnEnemy();
-  }
-
-  heartSpawnTimer++;
-  if (heartSpawnTimer >= 500) {
-    heartSpawnTimer = 0;
-    hearts.push({
-      x: Math.random() * (w - 60) + 30,
-      y: Math.random() * (h - 60) + 30,
-      lifeTime: 500
-    });
   }
 
   player.fireTimer++;
@@ -420,18 +396,6 @@ function update(){
     }
   });
   gems = gems.filter(g => !g.collected);
-
-  hearts.forEach(hItem => {
-    hItem.lifeTime--;
-    const d = Math.hypot(player.x - hItem.x, player.y - hItem.y);
-    if (d < player.radius + 14) {
-      lives++;
-      hItem.collected = true;
-      showAlert("❤️ VIDA APANHADA NA ARENA!");
-      updateHUD();
-    }
-  });
-  hearts = hearts.filter(hItem => !hItem.collected && hItem.lifeTime > 0);
 }
 
 function render(){
@@ -448,14 +412,6 @@ function render(){
     ctx.fillStyle = "#ffb703";
     ctx.shadowColor = "#ffb703"; ctx.shadowBlur = 6;
     ctx.beginPath(); ctx.arc(g.x, g.y, 4, 0, Math.PI * 2); ctx.fill();
-    ctx.shadowBlur = 0;
-  });
-
-  hearts.forEach(hItem => {
-    ctx.fillStyle = "#ff0055";
-    ctx.shadowColor = "#ff0055"; ctx.shadowBlur = 10;
-    ctx.beginPath(); ctx.arc(hItem.x, hItem.y, 8, 0, Math.PI * 2); ctx.fill();
-    ctx.strokeStyle = "#fff"; ctx.lineWidth = 1.5; ctx.stroke();
     ctx.shadowBlur = 0;
   });
 
