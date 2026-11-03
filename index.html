@@ -64,7 +64,7 @@ canvas#cv{display:block;width:100%;height:100%;touch-action:none}
   <div id="screenOverlay">
     <div class="menu-card">
       <div class="title" id="overlayTitle">GRID RUNNER</div>
-      <div class="subtitle" id="menuSubtitle">CYBER SURVIVOR · Progressão suave e equilibrada!</div>
+      <div class="subtitle" id="menuSubtitle">CYBER SURVIVOR · Progressão ligeiramente mais dinâmica!</div>
       <div id="overlayStats" class="menu-stats" hidden></div>
       <div id="overlayActions">
         <button class="btn" id="startBtn">INICIALIZAR SISTEMA</button>
@@ -76,7 +76,7 @@ canvas#cv{display:block;width:100%;height:100%;touch-action:none}
 <script>
 "use strict";
 
-/* GRID RUNNER: CYBER SURVIVOR — V29 (Progressão Suave e Balanceada) */
+/* GRID RUNNER: CYBER SURVIVOR — V30 (Progressão Ligeiramente Acelerada) */
 (function makeIcon(){
   try{
     const c=document.createElement("canvas");c.width=c.height=192;const g=c.getContext("2d");
@@ -88,8 +88,8 @@ canvas#cv{display:block;width:100%;height:100%;touch-action:none}
   }catch(e){}
 })();
 
-const SAVE_KEY="gridRunnerBestScoreV29";
-const PROGRESS_KEY="gridRunnerProgressV29";
+const SAVE_KEY="gridRunnerBestScoreV30";
+const PROGRESS_KEY="gridRunnerProgressV30";
 const $=id=>document.getElementById(id);
 const cv=$("cv"),ctx=cv.getContext("2d",{alpha:false});
 const scoreLbl=$("scoreLbl"),bestLbl=$("bestLbl"),levelLbl=$("levelLbl"),energyLbl=$("energyLbl");
@@ -97,7 +97,7 @@ const xpBar=$("xpBar"),bossBar=$("bossBar"),bossBarContainer=$("bossBarContainer
 const overlay=$("screenOverlay"),overlayTitle=$("overlayTitle"),menuSubtitle=$("menuSubtitle"),overlayActions=$("overlayActions"),overlayStats=$("overlayStats"),menuNote=$("menuNote"),infoAlert=$("infoAlert");
 let bestScore=0;try{bestScore=Number(localStorage.getItem(SAVE_KEY))||0}catch(e){}
 let running=false,paused=false,gameOver=false;
-let score=0,level=1,xp=0,maxXp=35,energy=100;
+let score=0,level=1,xp=0,maxXp=30,energy=100;
 let player, enemies=[],bullets=[],gems=[],energyCells=[],boss=null,pendingUpgrade=null;
 let spawnClock=0,cellClock=0,saveClock=0,idleClock=0,alertClock=0;
 let lastFrame=0,raf=0,hasSavedProgress=false;
@@ -107,13 +107,12 @@ const rand=(a,b)=>a+Math.random()*(b-a);
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 const dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
 
-// Inimigos com estatísticas iniciais acessíveis e progressão suave
 const TYPES={
-  bug:{hp:1,speed:1.25,r:8,color:"#70e000",score:12,xp:8,damage:7},
-  glitch:{hp:2,speed:1.6,r:10,color:"#00d9ff",score:18,xp:11,damage:9},
-  worm:{hp:3,speed:0.85,r:14,color:"#ff3864",score:28,xp:15,damage:12},
-  runner:{hp:2,speed:2.1,r:8,color:"#bd83ff",score:22,xp:12,damage:10},
-  tank:{hp:6,speed:0.7,r:17,color:"#ff9f1c",score:40,xp:20,damage:14}
+  bug:{hp:1,speed:1.28,r:8,color:"#70e000",score:12,xp:9,damage:7},
+  glitch:{hp:2,speed:1.65,r:10,color:"#00d9ff",score:18,xp:12,damage:9},
+  worm:{hp:3,speed:0.88,r:14,color:"#ff3864",score:28,xp:16,damage:12},
+  runner:{hp:2,speed:2.15,r:8,color:"#bd83ff",score:22,xp:13,damage:10},
+  tank:{hp:6,speed:0.72,r:17,color:"#ff9f1c",score:40,xp:22,damage:14}
 };
 
 function newPlayer(w,h){
@@ -141,7 +140,7 @@ function saveBest(){
   updateHUD();
 }
 function serialise(){
-  return {version:7,score,level,xp,maxXp,energy,player:{...player},enemies,bullets,gems,energyCells,boss,pendingUpgrade,spawnClock,cellClock,idleClock};
+  return {version:8,score,level,xp,maxXp,energy,player:{...player},enemies,bullets,gems,energyCells,boss,pendingUpgrade,spawnClock,cellClock,idleClock};
 }
 function saveProgress(){
   if(!player||gameOver)return;
@@ -152,8 +151,8 @@ function restoreProgress(){
   try{
     const raw=localStorage.getItem(PROGRESS_KEY);if(!raw)return false;
     const p=JSON.parse(raw);
-    if(!p||p.version!==7||!p.player||!(p.energy>0))return false;
-    score=Math.max(0,Number(p.score)||0);level=Math.max(1,Number(p.level)||1);xp=Math.max(0,Number(p.xp)||0);maxXp=Math.max(20,Number(p.maxXp)||35);energy=clamp(Number(p.energy)||100,1,100);
+    if(!p||p.version!==8||!p.player||!(p.energy>0))return false;
+    score=Math.max(0,Number(p.score)||0);level=Math.max(1,Number(p.level)||1);xp=Math.max(0,Number(p.xp)||0);maxXp=Math.max(20,Number(p.maxXp)||30);energy=clamp(Number(p.energy)||100,1,100);
     player={...newPlayer(cv.clientWidth,cv.clientHeight),...p.player};
     enemies=Array.isArray(p.enemies)?p.enemies:[];bullets=Array.isArray(p.bullets)?p.bullets:[];gems=Array.isArray(p.gems)?p.gems:[];energyCells=Array.isArray(p.energyCells)?p.energyCells:[];
     boss=p.boss||null;pendingUpgrade=p.pendingUpgrade||null;spawnClock=Number(p.spawnClock)||0;cellClock=Number(p.cellClock)||0;idleClock=Number(p.idleClock)||0;
@@ -171,7 +170,7 @@ function showMenu(mode="start"){
     overlayStats.hidden=false;overlayStats.innerHTML=`<span>Pontos: <b>${Math.floor(score)}</b></span><span>Nível: <b>${level}</b></span><span>Recorde: <b>${bestScore}</b></span>`;
     addButton("TENTAR DE NOVO",()=>startGame(false));menuNote.textContent="O recorde fica guardado neste dispositivo.";
   }else{
-    overlayTitle.textContent="GRID RUNNER";menuSubtitle.textContent="CYBER SURVIVOR · Progressão suave e equilibrada desde o início!";
+    overlayTitle.textContent="GRID RUNNER";menuSubtitle.textContent="CYBER SURVIVOR · Progressão ligeiramente mais dinâmica!";
     const canResume=hasSavedProgress&&restoreProgress();
     if(canResume)addButton("CONTINUAR PARTIDA",()=>startGame(true));
     addButton(canResume?"NOVO JOGO":"INICIALIZAR SISTEMA",()=>startGame(false),canResume?"secondary":"");
@@ -185,7 +184,7 @@ function startGame(resume=false){
   resizeCanvas();
   if(resume){if(!restoreProgress())resume=false;}
   if(!resume){
-    clearProgress();score=0;level=1;xp=0;maxXp=35;energy=100;player=newPlayer(cv.clientWidth,cv.clientHeight);
+    clearProgress();score=0;level=1;xp=0;maxXp=30;energy=100;player=newPlayer(cv.clientWidth,cv.clientHeight);
     enemies=[];bullets=[];gems=[];energyCells=[];boss=null;pendingUpgrade=null;spawnClock=0;cellClock=0;idleClock=0;
   }
   gameOver=false;paused=false;running=true;saveClock=0;bossBarContainer.style.display=boss?"block":"none";
@@ -211,24 +210,23 @@ function spawnEnemy(){
   
   const type=pool[Math.floor(Math.random()*pool.length)],base=TYPES[type];
   
-  // Escalamento linear muito suave para que a dificuldade suba de forma gradual
   const extraLvl=Math.max(0,level-1);
-  const diffMultiplier=1 + extraLvl * 0.045;
+  const diffMultiplier=1 + extraLvl * 0.055;
 
   enemies.push({
     x,y,type,
     hp:Math.ceil(base.hp * diffMultiplier),
     maxHp:Math.ceil(base.hp * diffMultiplier),
-    speed:base.speed * (1 + Math.min(extraLvl, 30) * 0.012),
+    speed:base.speed * (1 + Math.min(extraLvl, 30) * 0.015),
     radius:base.r,color:base.color,
-    damage:Math.round(base.damage + extraLvl * 0.8),
+    damage:Math.round(base.damage + extraLvl * 0.9),
     score:base.score,xpValue:base.xp
   });
 }
 
 function spawnBoss(){
-  const w=cv.clientWidth,h=cv.clientHeight,hp=80+level*16;
-  boss={x:w/2,y:-40,radius:28,hp,maxHp:hp,speed:1.05+Math.min(level,25)*.02,phase:0,attackTimer:95};
+  const w=cv.clientWidth,h=cv.clientHeight,hp=75+level*15;
+  boss={x:w/2,y:-40,radius:28,hp,maxHp:hp,speed:1.08+Math.min(level,25)*.022,phase:0,attackTimer:90};
   bossBarContainer.style.display="block";updateHUD();showAlert("⚠ BOSS DETETADO NA ARENA!");vibrate([120,60,120]);
 }
 
@@ -255,8 +253,7 @@ function spawnUpgradeModule(){
 
 function damagePlayer(amount){
   if(player.invulnerable>0)return;
-  // Dano progressivo e moderado
-  const actualDamage=Math.round(amount + (level - 1) * 0.8);
+  const actualDamage=Math.round(amount + (level - 1) * 0.9);
   energy=Math.max(0,energy-actualDamage);
   player.invulnerable=.75;
   vibrate([110, 40, 110]);
@@ -300,12 +297,12 @@ function update(dt){
 
   if(!boss&&!pendingUpgrade){
     spawnClock+=step;
-    // Cadência de surgimento progressiva e suave
-    const spawnRateReduction=Math.max(22, 90 - level * 2.8);
+    // Frequência de monstros um pouco mais acelerada
+    const spawnRateReduction=Math.max(20, 82 - level * 3.0);
     if(spawnClock>=spawnRateReduction){spawnClock=0;spawnEnemy()}
   }
   cellClock+=step;
-  if(cellClock>=650&&energyCells.length<2){cellClock=0;energyCells.push({x:rand(30,w-30),y:rand(35,h-35),radius:11,value:25,life:600})}
+  if(cellClock>=620&&energyCells.length<2){cellClock=0;energyCells.push({x:rand(30,w-30),y:rand(35,h-35),radius:11,value:25,life:600})}
 
   player.fireTimer+=step;
   if(player.fireTimer>=player.fireRate){player.fireTimer=0;shoot()}
@@ -318,9 +315,9 @@ function update(dt){
     boss.y=clamp(boss.y+Math.sin(a)*boss.speed*step,boss.radius,h-boss.radius);
     boss.attackTimer-=step;
     if(boss.attackTimer<=0){
-      boss.attackTimer=Math.max(60,105-level*1.2);
+      boss.attackTimer=Math.max(55,100-level*1.3);
       const ba=Math.atan2(player.y-boss.y,player.x-boss.x);
-      for(let k=-1;k<=1;k++){const aa=ba+k*.22;bullets.push({x:boss.x,y:boss.y,vx:Math.cos(aa)*3.0,vy:Math.sin(aa)*3.0,damage:0,hostile:true,life:110})}
+      for(let k=-1;k<=1;k++){const aa=ba+k*.22;bullets.push({x:boss.x,y:boss.y,vx:Math.cos(aa)*3.1,vy:Math.sin(aa)*3.1,damage:0,hostile:true,life:110})}
     }
     if(dist(player,boss)<boss.radius+player.radius)damagePlayer(25);
   }
@@ -332,7 +329,7 @@ function update(dt){
     if(b.hostile){if(dist(player,b)<player.radius+5){b.life=0;damagePlayer(9)}continue}
     if(boss&&dist(b,boss)<boss.radius+4){
       boss.hp-=b.damage;b.life=0;
-      if(boss.hp<=0){score+=300+level*15;boss=null;bossBarContainer.style.display="none";level++;xp=0;maxXp=Math.floor(maxXp*1.3+8);spawnUpgradeModule();saveBest()}
+      if(boss.hp<=0){score+=300+level*15;boss=null;bossBarContainer.style.display="none";level++;xp=0;maxXp=Math.floor(maxXp*1.26+7);spawnUpgradeModule();saveBest()}
       continue;
     }
     if(!boss){
@@ -359,7 +356,7 @@ function update(dt){
     pendingUpgrade=null;
     level++;
     xp=0;
-    maxXp=Math.floor(maxXp*1.3+8);
+    maxXp=Math.floor(maxXp*1.26+7);
     updateHUD();
     saveProgress();
   }
@@ -460,7 +457,7 @@ window.addEventListener("resize",resizeCanvas);
 window.addEventListener("orientationchange",()=>setTimeout(resizeCanvas,150));
 
 resizeCanvas();bestLbl.textContent=bestScore.toLocaleString("pt-PT");
-try{const p=JSON.parse(localStorage.getItem(PROGRESS_KEY)||"null");hasSavedProgress=!!(p&&p.version===7&&p.energy>0)}catch(e){}
+try{const p=JSON.parse(localStorage.getItem(PROGRESS_KEY)||"null");hasSavedProgress=!!(p&&p.version===8&&p.energy>0)}catch(e){}
 showMenu("start");
 </script>
 </body>
