@@ -16,9 +16,9 @@
 <link id="dynamicAppleIcon" rel="apple-touch-icon">
 
 <style>
-  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
-  html, body { width:100%; height:100%; overflow:hidden; background:#03050c; color:#00f0ff; font-family:"Rajdhani",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; touch-action:none; user-select:none; -webkit-user-select:none; }
-  body { display:flex; justify-content:center; align-items:center; }
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; touch-action: none; }
+  html, body { width:100%; height:100%; overflow:hidden; background:#03050c; color:#00f0ff; font-family:"Rajdhani",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; user-select:none; -webkit-user-select:none; position: fixed; }
+  body { display:flex; justify-content:center; align-items:center; overscroll-behavior: none; }
   #app { width:100%; max-width:500px; height:100vh; height:100dvh; display:flex; flex-direction:column; position:relative; background:#03050c; overflow:hidden; border: 1px solid rgba(0,240,255,0.2); }
   #hud { display:flex; align-items:center; justify-content:space-between; padding:10px 16px; background:rgba(5,10,25,0.95); border-bottom:1px solid rgba(0,240,255,0.2); flex-shrink:0; z-index:5; }
   .hstat { display:flex; flex-direction:column; align-items:center; line-height:1.1; }
@@ -44,7 +44,6 @@
   .btn { width:100%; padding:16px; border-radius:10px; background:#00f0ff; border:none; color:#03050c; font-weight:900; font-size:15px; cursor:pointer; box-shadow:0 0 20px rgba(0,240,255,0.5); margin-top:10px; }
   .btn:active { transform:scale(0.97); }
 
-  /* Notificação no Topo (Não tapa a visão da arena) */
   #infoAlert { position:absolute; top:12px; left:50%; transform:translateX(-50%) translateY(-40px); background:rgba(5,10,25,0.96); border:1px solid #00f0ff; color:#00f0ff; padding:6px 16px; border-radius:20px; font-size:12px; font-weight:800; pointer-events:none; opacity:0; transition:all 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275); z-index:20; box-shadow:0 0 15px rgba(0,240,255,0.3); text-align:center; white-space:nowrap; }
   #infoAlert.show { opacity:1; transform:translateX(-50%) translateY(0); }
 </style>
@@ -67,7 +66,7 @@
   <div id="screenOverlay">
     <div class="menu-card">
       <div class="title">GRID RUNNER</div>
-      <div class="subtitle" id="menuSubtitle">Modo Hardcore Definitivo: Alertas discretos no topo, vibração tátil e arena totalmente limpa!</div>
+      <div class="subtitle" id="menuSubtitle">Modo Hardcore Definitivo: Joystick otimizado contra gestos de sistema e máxima precisão!</div>
       <button class="btn" id="startBtn">INICIALIZAR SISTEMA</button>
     </div>
   </div>
@@ -134,8 +133,8 @@
   document.getElementById('dynamicAppleIcon').href = iconDataUrl;
 })();
 
-const SAVE_KEY = "gridRunnerBestScoreV22";
-const PROGRESS_KEY = "gridRunnerActiveProgressV12";
+const SAVE_KEY = "gridRunnerBestScoreV23";
+const PROGRESS_KEY = "gridRunnerActiveProgressV13";
 let bestScore = 0;
 try { const saved = localStorage.getItem(SAVE_KEY); if (saved) bestScore = parseInt(saved, 10) || 0; } catch(_) {}
 
@@ -158,6 +157,7 @@ let isOverheating = false;
 
 let player = { x: 0, y: 0, radius: 14, speed: 3.8, fireRate: 35, fireTimer: 0, damage: 1, bulletCount: 1, range: 170, weaponType: "plasma" };
 let enemies = [], gems = [], bullets = [];
+// Joystick aprimorado com margem de segurança contra gestos nas bordas
 let joystick = { active: false, id: null, startX: 0, startY: 0, curX: 0, curY: 0, dx: 0, dy: 0 };
 let keys = {};
 
@@ -275,28 +275,40 @@ document.addEventListener("visibilitychange", () => {
 window.addEventListener("keydown", e => { keys[e.key.toLowerCase()] = true; });
 window.addEventListener("keyup", e => { keys[e.key.toLowerCase()] = false; });
 
+// Tratamento de Toques Otimizado para Evitar Gestos do Sistema (Edge Swipes)
 cv.addEventListener("pointerdown", e => {
+  e.preventDefault();
   const r = cv.getBoundingClientRect();
+  const touchX = e.clientX - r.left;
+  const touchY = e.clientY - r.top;
+
+  // Margem de segurança de 50px nas bordas para evitar que gestos de "Voltar" fechem a página
+  const margin = 50;
+  if (touchX < margin || touchX > r.width - margin || touchY < margin || touchY > r.height - margin) {
+    return; // Ignora toques muito colados às bordas para prevenir fechar a página por engano
+  }
+
   if (!joystick.active) {
     joystick.active = true;
     joystick.id = e.pointerId;
-    joystick.startX = e.clientX - r.left;
-    joystick.startY = e.clientY - r.top;
-    joystick.curX = joystick.startX;
-    joystick.curY = joystick.startY;
+    joystick.startX = touchX;
+    joystick.startY = touchY;
+    joystick.curX = touchX;
+    joystick.curY = touchY;
     joystick.dx = 0; joystick.dy = 0;
   }
-});
+}, { passive: false });
 
 cv.addEventListener("pointermove", e => {
   if (!joystick.active || e.pointerId !== joystick.id) return;
+  e.preventDefault();
   const r = cv.getBoundingClientRect();
   joystick.curX = e.clientX - r.left;
   joystick.curY = e.clientY - r.top;
   const dx = joystick.curX - joystick.startX;
   const dy = joystick.curY - joystick.startY;
   const dist = Math.hypot(dx, dy);
-  const maxRadius = 45;
+  const maxRadius = 50; // Aumentado ligeiramente para melhor manobrabilidade
 
   if (dist > 0) {
     const angle = Math.atan2(dy, dx);
@@ -304,7 +316,7 @@ cv.addEventListener("pointermove", e => {
     joystick.dx = (Math.cos(angle) * clampedDist) / maxRadius;
     joystick.dy = (Math.sin(angle) * clampedDist) / maxRadius;
   }
-});
+}, { passive: false });
 
 function endJoystick(e) {
   if (joystick.active && e.pointerId === joystick.id) {
@@ -738,9 +750,9 @@ function render(){
 
   if (joystick.active) {
     ctx.strokeStyle = "rgba(0,240,255,0.25)"; ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.arc(joystick.startX, joystick.startY, 45, 0, Math.PI * 2); ctx.stroke();
+    ctx.beginPath(); ctx.arc(joystick.startX, joystick.startY, 50, 0, Math.PI * 2); ctx.stroke();
     ctx.fillStyle = "rgba(0,240,255,0.4)";
-    ctx.beginPath(); ctx.arc(joystick.curX, joystick.curY, 20, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(joystick.curX, joystick.curY, 22, 0, Math.PI * 2); ctx.fill();
   }
 }
 
