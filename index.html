@@ -44,8 +44,9 @@
   .btn { width:100%; padding:16px; border-radius:10px; background:#00f0ff; border:none; color:#03050c; font-weight:900; font-size:15px; cursor:pointer; box-shadow:0 0 20px rgba(0,240,255,0.5); margin-top:10px; }
   .btn:active { transform:scale(0.97); }
 
-  #infoAlert { position:absolute; top:18%; left:50%; transform:translateX(-50%); background:rgba(5,10,25,0.95); border:1px solid #00f0ff; color:#00f0ff; padding:8px 16px; border-radius:8px; font-size:13px; font-weight:800; pointer-events:none; opacity:0; transition:opacity 0.3s; z-index:20; box-shadow:0 0 15px rgba(0,240,255,0.4); text-align:center; }
-  #infoAlert.show { opacity:1; }
+  /* Notificação no Topo (Não tapa a visão da arena) */
+  #infoAlert { position:absolute; top:12px; left:50%; transform:translateX(-50%) translateY(-40px); background:rgba(5,10,25,0.96); border:1px solid #00f0ff; color:#00f0ff; padding:6px 16px; border-radius:20px; font-size:12px; font-weight:800; pointer-events:none; opacity:0; transition:all 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275); z-index:20; box-shadow:0 0 15px rgba(0,240,255,0.3); text-align:center; white-space:nowrap; }
+  #infoAlert.show { opacity:1; transform:translateX(-50%) translateY(0); }
 </style>
 </head>
 <body>
@@ -66,7 +67,7 @@
   <div id="screenOverlay">
     <div class="menu-card">
       <div class="title">GRID RUNNER</div>
-      <div class="subtitle" id="menuSubtitle">Modo Hardcore Definitivo: Vibração ao perder energia, Bosses limpos na arena e sobrevivência total!</div>
+      <div class="subtitle" id="menuSubtitle">Modo Hardcore Definitivo: Alertas discretos no topo, vibração tátil e arena totalmente limpa!</div>
       <button class="btn" id="startBtn">INICIALIZAR SISTEMA</button>
     </div>
   </div>
@@ -133,8 +134,8 @@
   document.getElementById('dynamicAppleIcon').href = iconDataUrl;
 })();
 
-const SAVE_KEY = "gridRunnerBestScoreV21";
-const PROGRESS_KEY = "gridRunnerActiveProgressV11";
+const SAVE_KEY = "gridRunnerBestScoreV22";
+const PROGRESS_KEY = "gridRunnerActiveProgressV12";
 let bestScore = 0;
 try { const saved = localStorage.getItem(SAVE_KEY); if (saved) bestScore = parseInt(saved, 10) || 0; } catch(_) {}
 
@@ -165,10 +166,9 @@ function showAlert(msg) {
   infoAlert.textContent = msg;
   infoAlert.classList.add("show");
   clearTimeout(alertTimer);
-  alertTimer = setTimeout(() => infoAlert.classList.remove("show"), 2500);
+  alertTimer = setTimeout(() => infoAlert.classList.remove("show"), 2200);
 }
 
-// Função para disparar vibração tátil ao perder energia
 function triggerHapticFeedback() {
   if (navigator.vibrate) {
     try { navigator.vibrate(60); } catch(_) {}
@@ -381,7 +381,7 @@ function spawnUpgradeModule(){
     radius: 18,
     data: chosen
   };
-  showAlert(`🎁 MÓDULO SUPERIOR: ${chosen.title}!`);
+  showAlert(`🎁 MÓDULO: ${chosen.title}!`);
 }
 
 function spawnEnergyCell(){
@@ -438,7 +438,7 @@ function update(){
       if (idleTimer % 60 === 0) {
         energy -= 10;
         triggerHapticFeedback();
-        showAlert("🔥 ALERTA: SOBREAQUECIMENTO DA GRELHA (-10% ENERGIA)!");
+        showAlert("🔥 SOBREAQUECIMENTO (-10% ENERGIA)!");
         updateHUD();
         if (energy <= 0) {
           running = false;
@@ -564,7 +564,7 @@ function update(){
         if (currentBoss.hp <= 0) {
           score += 250;
           if (score > bestScore) bestScore = score;
-          showAlert("🏆 BOSS ELIMINADO! SISTEMA ESTABILIZADO!");
+          showAlert("🏆 BOSS ELIMINADO!");
           bossBarContainer.style.display = "none";
           currentBoss = null;
           spawnUpgradeModule();
@@ -594,7 +594,7 @@ function update(){
     if (d < player.radius + cell.radius) {
       cell.collected = true;
       energy = Math.min(100, energy + cell.value);
-      showAlert(`🔋 ENERGIA RECARREGADA (+${cell.value}%)!`);
+      showAlert(`🔋 ENERGIA (+${cell.value}%)!`);
       updateHUD();
       saveProgress();
     }
@@ -628,7 +628,7 @@ function update(){
     const d = Math.hypot(player.x - pendingUpgradeModule.x, player.y - pendingUpgradeModule.y);
     if (d < player.radius + pendingUpgradeModule.radius) {
       pendingUpgradeModule.data.apply();
-      showAlert(`✨ UPGRADE ADQUIRIDO: ${pendingUpgradeModule.data.title}!`);
+      showAlert(`✨ ADQUIRIDO: ${pendingUpgradeModule.data.title}!`);
       pendingUpgradeModule = null;
       level++;
       maxXp = Math.floor(maxXp * 1.5);
