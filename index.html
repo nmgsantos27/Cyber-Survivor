@@ -62,7 +62,7 @@
   <div id="screenOverlay">
     <div class="menu-card">
       <div class="title">GRID RUNNER</div>
-      <div class="subtitle" id="menuSubtitle">Modo Hardcore Dinâmico: O dano dos inimigos escala a partir do Nível 10 e as células de energia desaparecem em segundos!</div>
+      <div class="subtitle" id="menuSubtitle">Modo Hardcore Dinâmico: Upgrades escalam com o nível e as células de energia desaparecem em segundos!</div>
       <button class="btn" id="startBtn">INICIALIZAR SISTEMA</button>
     </div>
   </div>
@@ -129,8 +129,8 @@
   document.getElementById('dynamicAppleIcon').href = iconDataUrl;
 })();
 
-const SAVE_KEY = "gridRunnerBestScoreV17";
-const PROGRESS_KEY = "gridRunnerActiveProgressV7";
+const SAVE_KEY = "gridRunnerBestScoreV18";
+const PROGRESS_KEY = "gridRunnerActiveProgressV8";
 let bestScore = 0;
 try { const saved = localStorage.getItem(SAVE_KEY); if (saved) bestScore = parseInt(saved, 10) || 0; } catch(_) {}
 
@@ -327,15 +327,19 @@ function spawnEnemy(){
   enemies.push({ x, y, hp, maxHp: hp, speed: speed * (1 + level * 0.04), color, radius, type });
 }
 
+// Módulos com bónus progressivos baseados no nível atual do jogador
 function spawnUpgradeModule(){
   const w = cv.clientWidth, h = cv.clientHeight;
+  const multiplier = 1 + (level * 0.05); // O bónus cresce progressivamente a cada nível
+  
   const types = [
-    { title: "⚡ Overclock de Cadência", type: "fireRate", apply: () => { player.fireRate = Math.max(10, player.fireRate * 0.85); } },
-    { title: "🎯 Módulo de Precisão", type: "range", apply: () => { player.range += 40; } },
-    { title: "⚔️ Núcleo de Dano Plasma", type: "damage", apply: () => { player.damage += 1; } },
-    { title: "💥 Canhão Laser Duplo", type: "weapon", apply: () => { player.bulletCount += 1; player.weaponType = "dual"; } },
-    { title: "🌟 Canhão Orbitante V-Laser", type: "weapon", apply: () => { player.bulletCount = 3; player.weaponType = "triple"; } }
+    { title: `⚡ Overclock Avançado [Nv.${level}]`, apply: () => { player.fireRate = Math.max(8, player.fireRate * 0.82); } },
+    { title: `🎯 Módulo de Precisão Tática [Nv.${level}]`, apply: () => { player.range += Math.round(35 * multiplier); } },
+    { title: `⚔️ Núcleo de Plasma Pesado [Nv.${level}]`, apply: () => { player.damage += Math.max(1, Math.round(1 + level * 0.1)); } },
+    { title: `💥 Canhão Laser Multi-Feixe [Nv.${level}]`, apply: () => { player.bulletCount += 1; player.weaponType = "dual"; } },
+    { title: `🌟 Canhão Orbitante V-Laser [Nv.${level}]`, apply: () => { player.bulletCount = Math.min(5, player.bulletCount + 1); player.weaponType = "triple"; } }
   ];
+  
   const chosen = types[Math.floor(Math.random() * types.length)];
   pendingUpgradeModule = {
     x: Math.random() * (w - 80) + 40,
@@ -343,7 +347,7 @@ function spawnUpgradeModule(){
     radius: 18,
     data: chosen
   };
-  showAlert(`🎁 MÓDULO DISPONÍVEL: ${chosen.title}!`);
+  showAlert(`🎁 MÓDULO SUPERIOR: ${chosen.title}!`);
 }
 
 function spawnEnergyCell(){
@@ -353,7 +357,7 @@ function spawnEnergyCell(){
     y: Math.random() * (h - 60) + 30,
     radius: 12,
     value: 25,
-    life: 480 // Desaparece ao fim de 8 segundos (60 frames * 8)
+    life: 480 // Desaparece ao fim de 8 segundos
   });
 }
 
@@ -372,7 +376,6 @@ function update(){
     saveProgress();
   }
 
-  // Spawn de célula de energia a cada ~14 segundos
   energyCellTimer++;
   if (energyCellTimer >= 850 && energyCells.length < 2) {
     energyCellTimer = 0;
@@ -467,7 +470,6 @@ function update(){
     e.y += Math.sin(angle) * e.speed;
 
     if (Math.hypot(e.x - player.x, e.y - player.y) < e.radius + player.radius) {
-      // A partir do nível 10, o dano escala agressivamente de forma a impedir tanques e invencibilidade
       const collisionDamage = level >= 10 ? 34 + (level - 10) * 8 : 34;
       energy -= collisionDamage;
       e.hp = 0;
@@ -505,7 +507,6 @@ function update(){
   });
   enemies = enemies.filter(e => e.hp > 0);
 
-  // Atualizar temporizador e recolha das células de energia
   energyCells.forEach(cell => {
     cell.life--;
     const d = Math.hypot(player.x - cell.x, player.y - cell.y);
@@ -578,7 +579,6 @@ function render(){
     ctx.stroke();
   }
 
-  // Desenhar células de energia com efeito de aviso a piscar quando estão prestes a desaparecer
   energyCells.forEach(cell => {
     const alpha = cell.life < 120 && Math.floor(cell.life / 10) % 2 === 0 ? 0.3 : 1.0;
     ctx.globalAlpha = alpha;
