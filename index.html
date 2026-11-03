@@ -64,7 +64,7 @@ canvas#cv{display:block;width:100%;height:100%;touch-action:none}
   <div id="screenOverlay">
     <div class="menu-card">
       <div class="title" id="overlayTitle">GRID RUNNER</div>
-      <div class="subtitle" id="menuSubtitle">CYBER SURVIVOR · Progressão ligeiramente mais dinâmica!</div>
+      <div class="subtitle" id="menuSubtitle">CYBER SURVIVOR · Sobreaquecimento aos 5s e Bosses intermédios!</div>
       <div id="overlayStats" class="menu-stats" hidden></div>
       <div id="overlayActions">
         <button class="btn" id="startBtn">INICIALIZAR SISTEMA</button>
@@ -76,7 +76,7 @@ canvas#cv{display:block;width:100%;height:100%;touch-action:none}
 <script>
 "use strict";
 
-/* GRID RUNNER: CYBER SURVIVOR — V30 (Progressão Ligeiramente Acelerada) */
+/* GRID RUNNER: CYBER SURVIVOR — V31 (Sobreaquecimento 5s & Salto de Nível Pós-Boss) */
 (function makeIcon(){
   try{
     const c=document.createElement("canvas");c.width=c.height=192;const g=c.getContext("2d");
@@ -88,8 +88,8 @@ canvas#cv{display:block;width:100%;height:100%;touch-action:none}
   }catch(e){}
 })();
 
-const SAVE_KEY="gridRunnerBestScoreV30";
-const PROGRESS_KEY="gridRunnerProgressV30";
+const SAVE_KEY="gridRunnerBestScoreV31";
+const PROGRESS_KEY="gridRunnerProgressV31";
 const $=id=>document.getElementById(id);
 const cv=$("cv"),ctx=cv.getContext("2d",{alpha:false});
 const scoreLbl=$("scoreLbl"),bestLbl=$("bestLbl"),levelLbl=$("levelLbl"),energyLbl=$("energyLbl");
@@ -140,7 +140,7 @@ function saveBest(){
   updateHUD();
 }
 function serialise(){
-  return {version:8,score,level,xp,maxXp,energy,player:{...player},enemies,bullets,gems,energyCells,boss,pendingUpgrade,spawnClock,cellClock,idleClock};
+  return {version:9,score,level,xp,maxXp,energy,player:{...player},enemies,bullets,gems,energyCells,boss,pendingUpgrade,spawnClock,cellClock,idleClock};
 }
 function saveProgress(){
   if(!player||gameOver)return;
@@ -151,7 +151,7 @@ function restoreProgress(){
   try{
     const raw=localStorage.getItem(PROGRESS_KEY);if(!raw)return false;
     const p=JSON.parse(raw);
-    if(!p||p.version!==8||!p.player||!(p.energy>0))return false;
+    if(!p||p.version!==9||!p.player||!(p.energy>0))return false;
     score=Math.max(0,Number(p.score)||0);level=Math.max(1,Number(p.level)||1);xp=Math.max(0,Number(p.xp)||0);maxXp=Math.max(20,Number(p.maxXp)||30);energy=clamp(Number(p.energy)||100,1,100);
     player={...newPlayer(cv.clientWidth,cv.clientHeight),...p.player};
     enemies=Array.isArray(p.enemies)?p.enemies:[];bullets=Array.isArray(p.bullets)?p.bullets:[];gems=Array.isArray(p.gems)?p.gems:[];energyCells=Array.isArray(p.energyCells)?p.energyCells:[];
@@ -170,7 +170,7 @@ function showMenu(mode="start"){
     overlayStats.hidden=false;overlayStats.innerHTML=`<span>Pontos: <b>${Math.floor(score)}</b></span><span>Nível: <b>${level}</b></span><span>Recorde: <b>${bestScore}</b></span>`;
     addButton("TENTAR DE NOVO",()=>startGame(false));menuNote.textContent="O recorde fica guardado neste dispositivo.";
   }else{
-    overlayTitle.textContent="GRID RUNNER";menuSubtitle.textContent="CYBER SURVIVOR · Progressão ligeiramente mais dinâmica!";
+    overlayTitle.textContent="GRID RUNNER";menuSubtitle.textContent="CYBER SURVIVOR · Sobreaquecimento rápido & Bosses de 5 em 5 níveis!";
     const canResume=hasSavedProgress&&restoreProgress();
     if(canResume)addButton("CONTINUAR PARTIDA",()=>startGame(true));
     addButton(canResume?"NOVO JOGO":"INICIALIZAR SISTEMA",()=>startGame(false),canResume?"secondary":"");
@@ -286,18 +286,20 @@ function update(dt){
   if(joystick.active&&(joystick.dx||joystick.dy)){vx=joystick.dx;vy=joystick.dy}
   const moving=Math.hypot(vx,vy)>.08;
   if(moving)idleClock=0;else idleClock+=dt;
-  if(idleClock>12&&Math.floor((idleClock-7)/4)!==Math.floor((idleClock-dt-7)/4)){
+  
+  // Sobreaquecimento após 5 segundos parado (idleClock > 5)
+  if(idleClock>5&&Math.floor((idleClock-5)/3)!==Math.floor((idleClock-dt-5)/3)){
     energy=Math.max(0,energy-4);
     vibrate([90, 40, 90]);
     showAlert("🔥 SOBREAQUECIMENTO: MOVE-TE!");
     if(energy<=0){endGame();return}
   }
+
   player.x=clamp(player.x+vx*player.speed*step,player.radius,w-player.radius);
   player.y=clamp(player.y+vy*player.speed*step,player.radius,h-player.radius);
 
   if(!boss&&!pendingUpgrade){
     spawnClock+=step;
-    // Frequência de monstros um pouco mais acelerada
     const spawnRateReduction=Math.max(20, 82 - level * 3.0);
     if(spawnClock>=spawnRateReduction){spawnClock=0;spawnEnemy()}
   }
@@ -329,7 +331,17 @@ function update(dt){
     if(b.hostile){if(dist(player,b)<player.radius+5){b.life=0;damagePlayer(9)}continue}
     if(boss&&dist(b,boss)<boss.radius+4){
       boss.hp-=b.damage;b.life=0;
-      if(boss.hp<=0){score+=300+level*15;boss=null;bossBarContainer.style.display="none";level++;xp=0;maxXp=Math.floor(maxXp*1.26+7);spawnUpgradeModule();saveBest()}
+      if(boss.hp<=0){
+        score+=300+level*15;
+        boss=null;
+        bossBarContainer.style.display="none";
+        // Se for nível 5, o Boss ocupa o nível 6 e salta direto para o nível 7 (+2 níveis). Nos outros níveis avança normal (+1).
+        level += (level % 5 === 0) ? 2 : 1;
+        xp=0;
+        maxXp=Math.floor(maxXp*1.26+7);
+        spawnUpgradeModule();
+        saveBest();
+      }
       continue;
     }
     if(!boss){
@@ -457,7 +469,7 @@ window.addEventListener("resize",resizeCanvas);
 window.addEventListener("orientationchange",()=>setTimeout(resizeCanvas,150));
 
 resizeCanvas();bestLbl.textContent=bestScore.toLocaleString("pt-PT");
-try{const p=JSON.parse(localStorage.getItem(PROGRESS_KEY)||"null");hasSavedProgress=!!(p&&p.version===8&&p.energy>0)}catch(e){}
+try{const p=JSON.parse(localStorage.getItem(PROGRESS_KEY)||"null");hasSavedProgress=!!(p&&p.version===9&&p.energy>0)}catch(e){}
 showMenu("start");
 </script>
 </body>
