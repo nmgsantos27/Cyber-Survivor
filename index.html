@@ -62,7 +62,7 @@
   <div id="screenOverlay">
     <div class="menu-card">
       <div class="title">GRID RUNNER</div>
-      <div class="subtitle" id="menuSubtitle">Modo Hardcore: Recolhe módulos de armas e células de energia na arena para sobreviver!</div>
+      <div class="subtitle" id="menuSubtitle">Modo Hardcore Dinâmico: O dano dos inimigos escala a partir do Nível 10 e as células de energia desaparecem em segundos!</div>
       <button class="btn" id="startBtn">INICIALIZAR SISTEMA</button>
     </div>
   </div>
@@ -129,8 +129,8 @@
   document.getElementById('dynamicAppleIcon').href = iconDataUrl;
 })();
 
-const SAVE_KEY = "gridRunnerBestScoreV16";
-const PROGRESS_KEY = "gridRunnerActiveProgressV6";
+const SAVE_KEY = "gridRunnerBestScoreV17";
+const PROGRESS_KEY = "gridRunnerActiveProgressV7";
 let bestScore = 0;
 try { const saved = localStorage.getItem(SAVE_KEY); if (saved) bestScore = parseInt(saved, 10) || 0; } catch(_) {}
 
@@ -144,7 +144,7 @@ bestLbl.textContent = bestScore;
 
 let running = false, score = 0, level = 1, xp = 0, maxXp = 45, energy = 100;
 let pendingUpgradeModule = null;
-let energyCells = []; // Array de células de energia na arena
+let energyCells = [];
 
 let idleTimer = 0;
 let isOverheating = false;
@@ -346,14 +346,14 @@ function spawnUpgradeModule(){
   showAlert(`🎁 MÓDULO DISPONÍVEL: ${chosen.title}!`);
 }
 
-// Faz nascer uma célula de energia azul na arena
 function spawnEnergyCell(){
   const w = cv.clientWidth, h = cv.clientHeight;
   energyCells.push({
     x: Math.random() * (w - 60) + 30,
     y: Math.random() * (h - 60) + 30,
     radius: 12,
-    value: 25 // Recupera 25% de energia
+    value: 25,
+    life: 480 // Desaparece ao fim de 8 segundos (60 frames * 8)
   });
 }
 
@@ -372,9 +372,9 @@ function update(){
     saveProgress();
   }
 
-  // Spawn periódico de células de energia na arena (a cada ~15 segundos / 900 frames)
+  // Spawn de célula de energia a cada ~14 segundos
   energyCellTimer++;
-  if (energyCellTimer >= 900 && energyCells.length < 3) {
+  if (energyCellTimer >= 850 && energyCells.length < 2) {
     energyCellTimer = 0;
     spawnEnergyCell();
   }
@@ -467,7 +467,9 @@ function update(){
     e.y += Math.sin(angle) * e.speed;
 
     if (Math.hypot(e.x - player.x, e.y - player.y) < e.radius + player.radius) {
-      energy -= 34;
+      // A partir do nível 10, o dano escala agressivamente de forma a impedir tanques e invencibilidade
+      const collisionDamage = level >= 10 ? 34 + (level - 10) * 8 : 34;
+      energy -= collisionDamage;
       e.hp = 0;
       updateHUD();
       if (energy <= 0) {
@@ -503,8 +505,9 @@ function update(){
   });
   enemies = enemies.filter(e => e.hp > 0);
 
-  // Recolha de células de energia na arena
+  // Atualizar temporizador e recolha das células de energia
   energyCells.forEach(cell => {
+    cell.life--;
     const d = Math.hypot(player.x - cell.x, player.y - cell.y);
     if (d < player.radius + cell.radius) {
       cell.collected = true;
@@ -514,7 +517,7 @@ function update(){
       saveProgress();
     }
   });
-  energyCells = energyCells.filter(c => !c.collected);
+  energyCells = energyCells.filter(c => !c.collected && c.life > 0);
 
   if (!pendingUpgradeModule) {
     gems.forEach(g => {
@@ -575,13 +578,16 @@ function render(){
     ctx.stroke();
   }
 
-  // Desenhar células de energia azuis na arena
+  // Desenhar células de energia com efeito de aviso a piscar quando estão prestes a desaparecer
   energyCells.forEach(cell => {
+    const alpha = cell.life < 120 && Math.floor(cell.life / 10) % 2 === 0 ? 0.3 : 1.0;
+    ctx.globalAlpha = alpha;
     ctx.fillStyle = "#00f0ff";
     ctx.shadowColor = "#00f0ff"; ctx.shadowBlur = 12;
     ctx.beginPath(); ctx.arc(cell.x, cell.y, cell.radius, 0, Math.PI * 2); ctx.fill();
     ctx.strokeStyle = "#fff"; ctx.lineWidth = 2; ctx.stroke();
     ctx.shadowBlur = 0;
+    ctx.globalAlpha = 1.0;
   });
 
   if (!pendingUpgradeModule) {
