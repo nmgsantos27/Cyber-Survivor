@@ -46,6 +46,10 @@
 
   #infoAlert { position:absolute; top:18%; left:50%; transform:translateX(-50%); background:rgba(5,10,25,0.95); border:1px solid #00f0ff; color:#00f0ff; padding:8px 16px; border-radius:8px; font-size:13px; font-weight:800; pointer-events:none; opacity:0; transition:opacity 0.3s; z-index:20; box-shadow:0 0 15px rgba(0,240,255,0.4); text-align:center; }
   #infoAlert.show { opacity:1; }
+
+  /* Mensagem de Alerta de Chegada do Boss */
+  #bossBanner { position:absolute; top:40%; left:50%; transform:translate(-50%, -50%) scale(0.8); background:rgba(255,0,85,0.92); border:2px solid #fff; color:#fff; padding:16px 24px; border-radius:12px; font-size:16px; font-weight:900; pointer-events:none; opacity:0; transition:all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); z-index:25; box-shadow:0 0 30px rgba(255,0,85,0.8); text-align:center; letter-spacing:1px; }
+  #bossBanner.show { opacity:1; transform:translate(-50%, -50%) scale(1); }
 </style>
 </head>
 <body>
@@ -61,12 +65,13 @@
   <div id="gamewrap">
     <canvas id="cv"></canvas>
     <div id="infoAlert"></div>
+    <div id="bossBanner">⚠️ ALERTA DE AMEAÇA CRÍTICA<br><span style="font-size:20px; color:#ffb703;">GIGABYTE BOSS APROXIMA-SE!</span></div>
   </div>
 
   <div id="screenOverlay">
     <div class="menu-card">
       <div class="title">GRID RUNNER</div>
-      <div class="subtitle" id="menuSubtitle">Modo Hardcore Definitivo: Enfrenta Bosses a cada 5 níveis, apanha células temporizadas e sobrevive!</div>
+      <div class="subtitle" id="menuSubtitle">Modo Hardcore Definitivo: Bosses com alerta áudio/háptico a cada 5 níveis, células temporizadas e sobrevivência!</div>
       <button class="btn" id="startBtn">INICIALIZAR SISTEMA</button>
     </div>
   </div>
@@ -74,6 +79,31 @@
 
 <script>
 "use strict";
+
+// Gerador de Som Sintetizado (Web Audio API)
+let audioCtx = null;
+function playBossAlertSound() {
+  try {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(140, audioCtx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(40, audioCtx.currentTime + 0.6);
+
+    gain.gain.setValueAtTime(0.25, audioCtx.currentTime); // Volume suave para não irritar
+    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.6);
+
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+
+    osc.start();
+    osc.stop(audioCtx.currentTime + 0.6);
+  } catch(_) {}
+}
 
 (function generateAppIcon() {
   const iconCv = document.createElement('canvas');
@@ -133,8 +163,8 @@
   document.getElementById('dynamicAppleIcon').href = iconDataUrl;
 })();
 
-const SAVE_KEY = "gridRunnerBestScoreV19";
-const PROGRESS_KEY = "gridRunnerActiveProgressV9";
+const SAVE_KEY = "gridRunnerBestScoreV20";
+const PROGRESS_KEY = "gridRunnerActiveProgressV10";
 let bestScore = 0;
 try { const saved = localStorage.getItem(SAVE_KEY); if (saved) bestScore = parseInt(saved, 10) || 0; } catch(_) {}
 
@@ -143,14 +173,14 @@ const scoreLbl = document.getElementById("scoreLbl"), bestLbl = document.getElem
 const xpBar = document.getElementById("xpBar"), bossBarContainer = document.getElementById("bossBarContainer"), bossBar = document.getElementById("bossBar");
 const screenOverlay = document.getElementById("screenOverlay"), startBtn = document.getElementById("startBtn");
 const menuSubtitle = document.getElementById("menuSubtitle");
-const infoAlert = document.getElementById("infoAlert");
+const infoAlert = document.getElementById("infoAlert"), bossBanner = document.getElementById("bossBanner");
 
 bestLbl.textContent = bestScore;
 
 let running = false, score = 0, level = 1, xp = 0, maxXp = 45, energy = 100;
 let pendingUpgradeModule = null;
 let energyCells = [];
-let currentBoss = null; // Objeto Boss ativo
+let currentBoss = null;
 
 let idleTimer = 0;
 let isOverheating = false;
@@ -166,6 +196,17 @@ function showAlert(msg) {
   infoAlert.classList.add("show");
   clearTimeout(alertTimer);
   alertTimer = setTimeout(() => infoAlert.classList.remove("show"), 2500);
+}
+
+function triggerBossBanner() {
+  bossBanner.classList.add("show");
+  playBossAlertSound();
+  if (navigator.vibrate) {
+    navigator.vibrate([100, 50, 100, 50, 200]); // Padrão de vibração suave
+  }
+  setTimeout(() => {
+    bossBanner.classList.remove("show");
+  }, 2800);
 }
 
 function resizeCanvas(){
@@ -321,7 +362,7 @@ function updateHUD(){
 }
 
 function spawnEnemy(){
-  if (currentBoss) return; // Não nascem inimigos normais enquanto o Boss está ativo
+  if (currentBoss) return;
   const w = cv.clientWidth, h = cv.clientHeight;
   const edge = Math.floor(Math.random() * 4);
   let x, y;
@@ -351,7 +392,7 @@ function spawnBoss(){
     color: "#ff0055"
   };
   bossBarContainer.style.display = "block";
-  showAlert("⚠️ ALERTA: GIGABYTE BOSS DETETADO NA ARENA!");
+  triggerBossBanner();
 }
 
 function spawnUpgradeModule(){
@@ -457,14 +498,13 @@ function update(){
   player.x = Math.max(player.radius, Math.min(w - player.radius, player.x));
   player.y = Math.max(player.radius, Math.min(h - player.radius, player.y));
 
-  // Lógica de Boss
   if (currentBoss) {
     const angle = Math.atan2(player.y - currentBoss.y, player.x - currentBoss.x);
     currentBoss.x += Math.cos(angle) * currentBoss.speed;
     currentBoss.y += Math.sin(angle) * currentBoss.speed;
 
     if (Math.hypot(currentBoss.x - player.x, currentBoss.y - player.y) < currentBoss.radius + player.radius) {
-      energy -= 50; // Boss causa dano massivo de colisão
+      energy -= 50;
       updateHUD();
       if (energy <= 0) {
         running = false;
@@ -557,7 +597,7 @@ function update(){
           showAlert("🏆 BOSS ELIMINADO! SISTEMA ESTABILIZADO!");
           bossBarContainer.style.display = "none";
           currentBoss = null;
-          spawnUpgradeModule(); // Recompensa com módulo após derrotar o boss
+          spawnUpgradeModule();
         }
       }
     } else {
@@ -603,7 +643,7 @@ function update(){
           if (xp >= maxXp) {
             xp = maxXp;
             if (level % 5 === 0) {
-              spawnBoss(); // A cada 5 níveis surge um Boss em vez de upgrade direto
+              spawnBoss();
             } else {
               spawnUpgradeModule();
             }
@@ -654,7 +694,6 @@ function render(){
     ctx.stroke();
   }
 
-  // Renderizar Boss se estiver ativo
   if (currentBoss) {
     ctx.fillStyle = currentBoss.color;
     ctx.shadowColor = currentBoss.color; ctx.shadowBlur = 20;
@@ -663,7 +702,6 @@ function render(){
     ctx.shadowBlur = 0;
   }
 
-  // Renderizar células de energia e setas indicadoras off-screen
   energyCells.forEach(cell => {
     const alpha = cell.life < 120 && Math.floor(cell.life / 10) % 2 === 0 ? 0.3 : 1.0;
     ctx.globalAlpha = alpha;
@@ -674,7 +712,6 @@ function render(){
     ctx.shadowBlur = 0;
     ctx.globalAlpha = 1.0;
 
-    // Seta indicadora nas bordas se estiver fora do ecrã visível
     if (cell.x < 0 || cell.x > w || cell.y < 0 || cell.y > h) {
       renderOffScreenArrow(cell.x, cell.y, "#00f0ff", w, h);
     }
@@ -737,7 +774,6 @@ function render(){
   }
 }
 
-// Função auxiliar para desenhar setas nas bordas do ecrã para itens fora de vista
 function renderOffScreenArrow(targetX, targetY, color, w, h) {
   const margin = 30;
   const clampedX = Math.max(margin, Math.min(w - margin, targetX));
