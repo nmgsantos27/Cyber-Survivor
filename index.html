@@ -69,7 +69,7 @@
   <div id="screenOverlay">
     <div class="menu-card">
       <div class="title">GRID RUNNER</div>
-      <div class="subtitle" id="menuSubtitle">Modo Hardcore: Se saíres do jogo, o teu progresso fica gravado automaticamente para poderes continuar!</div>
+      <div class="subtitle" id="menuSubtitle">Modo Hardcore: Se saíres do jogo, o teu progresso fica gravado automaticamente!</div>
       <button class="btn" id="startBtn">INICIALIZAR SISTEMA</button>
     </div>
   </div>
@@ -189,7 +189,7 @@ function resizeCanvas(){
 }
 window.addEventListener("resize", resizeCanvas);
 
-// Verificar se existe progresso gravado ao carregar a página
+// Verificar progresso guardado
 let hasSavedProgress = false;
 try {
   const savedProg = localStorage.getItem(PROGRESS_KEY);
@@ -205,7 +205,7 @@ try {
 } catch(_) {}
 
 if (hasSavedProgress) {
-  menuSubtitle.textContent = `Progresso guardado detetado (Nv. ${level}, ${score} pontos). Poca abaixo para continuar!`;
+  menuSubtitle.textContent = `Progresso guardado (Nv. ${level}, ${score} pts). Clica abaixo para continuar!`;
   startBtn.textContent = "CONTINUAR PARTIDA";
 }
 
@@ -225,6 +225,7 @@ function clearProgress() {
 }
 
 function startGame(resume = false){
+  resizeCanvas(); // Garante dimensões corretas do canvas antes de arrancar
   const w = cv.clientWidth, h = cv.clientHeight;
   if (!resume || !hasSavedProgress) {
     clearProgress();
@@ -233,6 +234,10 @@ function startGame(resume = false){
     waitingForSync = false; syncCore = null;
     player.speed = 3.8; player.fireRate = 35; player.damage = 1; player.bulletCount = 1; player.range = 170;
     enemies = []; gems = []; bullets = [];
+  } else {
+    // Se continuar, garante que a nave não fica fora dos limites do ecrã se o tamanho alterou
+    player.x = Math.max(player.radius, Math.min(w - player.radius, player.x || w / 2));
+    player.y = Math.max(player.radius, Math.min(h - player.radius, player.y || h / 2));
   }
   screenOverlay.classList.add("hidden");
   running = true;
@@ -241,16 +246,9 @@ function startGame(resume = false){
 
 startBtn.addEventListener("click", () => startGame(hasSavedProgress));
 
-// Gravar progresso se sair da página ou fechar a aba
-window.addEventListener("beforeunload", () => {
-  saveProgress();
-});
-
-// Gravar também quando a app vai para segundo plano no telemóvel (visibilitychange)
+window.addEventListener("beforeunload", () => { saveProgress(); });
 document.addEventListener("visibilitychange", () => {
-  if (document.hidden) {
-    saveProgress();
-  }
+  if (document.hidden) saveProgress();
 });
 
 window.addEventListener("keydown", e => { keys[e.key.toLowerCase()] = true; });
@@ -326,7 +324,7 @@ function spawnEnemy(){
 
 function triggerLevelUp(){
   running = false;
-  clearProgress(); // Limpa o progresso pendente ao passar de nível para gravar limpo no próximo
+  clearProgress();
   hasSavedProgress = false;
   levelUpModal.classList.add("show");
   upgradeList.innerHTML = "";
@@ -361,7 +359,6 @@ function update(){
 
   const w = cv.clientWidth, h = cv.clientHeight;
 
-  // Gravar progresso automaticamente a cada 5 segundos de jogo fluido
   saveTimer++;
   if (saveTimer >= 300) {
     saveTimer = 0;
