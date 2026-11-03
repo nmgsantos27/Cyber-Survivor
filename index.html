@@ -286,7 +286,7 @@ function update(dt){
   if(joystick.active&&(joystick.dx||joystick.dy)){vx=joystick.dx;vy=joystick.dy}
   const moving=Math.hypot(vx,vy)>.08;
   if(moving)idleClock=0;else idleClock+=dt;
-  if(idleClock>12&&Math.floor((idleClock-12)/5)!==Math.floor((idleClock-dt-12)/5)){
+  if(idleClock>12&&Math.floor((idleClock-7)/4)!==Math.floor((idleClock-dt-7)/4)){
     energy=Math.max(0,energy-4);
     vibrate([90, 40, 90]);
     showAlert("🔥 SOBREAQUECIMENTO: MOVE-TE!");
