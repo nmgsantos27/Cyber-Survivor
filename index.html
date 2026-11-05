@@ -79,7 +79,7 @@ canvas#cv{display:block;width:100%;height:100%;touch-action:none}
     <div class="menu-card">
       <div class="title" id="overlayTitle">GRID RUNNER</div>
       <div class="subtitle" id="menuSubtitle">CYBER SURVIVOR · Sobrevive o máximo que puderes.</div>
-      <div id="overlayStats" class="menu-stats" hidden></div>
+      <div id="overlayStats" class="menu-stats"></div>
       <div id="overlayActions"></div>
       <div class="small-note" id="menuNote">Move-te com o dedo no ecrã (margem anti-gestos de 18px). O disparo é automático.</div>
     </div>
@@ -89,7 +89,7 @@ canvas#cv{display:block;width:100%;height:100%;touch-action:none}
 "use strict";
 
 /* ============================================================
-   GRID RUNNER: CYBER SURVIVOR — V59 (Correção de Estatísticas no Menu)
+   GRID RUNNER: CYBER SURVIVOR — V60 (Menu com Stats Diretas)
    ============================================================ */
 
 (function initPWA(){
@@ -119,7 +119,7 @@ canvas#cv{display:block;width:100%;height:100%;touch-action:none}
       const swCode = `
         self.addEventListener('install', e => self.skipWaiting());
         self.addEventListener('activate', e => e.waitUntil(clients.claim()));
-        self.addEventListener('fetch', e => e.respondWith(fetch(e.request).catch(() => caches.match(e.request))));
+        self.addEventListener('fetch', e => self.respondWith(fetch(e.request).catch(() => caches.match(e.request))));
       `;
       const swBlob = new Blob([swCode], {type: 'application/javascript'});
       navigator.serviceWorker.register(URL.createObjectURL(swBlob)).catch(()=>{});
@@ -127,10 +127,10 @@ canvas#cv{display:block;width:100%;height:100%;touch-action:none}
   }catch(e){}
 })();
 
-const SAVE_KEY="gridRunnerBestScoreV59";
-const META_KEY="gridRunnerMetaV59";
-const PROGRESS_KEY="gridRunnerProgressV59";
-const STATS_KEY="gridRunnerStatsV59";
+const SAVE_KEY="gridRunnerBestScoreV60";
+const META_KEY="gridRunnerMetaV60";
+const PROGRESS_KEY="gridRunnerProgressV60";
+const STATS_KEY="gridRunnerStatsV60";
 
 const $=id=>document.getElementById(id);
 const cv=$("cv"),ctx=cv.getContext("2d",{alpha:false});
@@ -501,7 +501,7 @@ function showShop(){
 /* ── PAINEL DE ESTATÍSTICAS GLOBAIS ── */
 function showStatsMenu(){
   running=false;paused=false;
-  totalStats = loadStats(); // Recarrega os dados atualizados
+  totalStats = loadStats();
   overlay.classList.remove("hidden");
   overlayTitle.textContent="📊 ESTATÍSTICAS";
   menuSubtitle.textContent="Histórico global e registo de combate.";
@@ -527,14 +527,15 @@ function showStatsMenu(){
 function showMenu(mode="start"){
   running=false;paused=false;
   joystick.active=false;joystick.id=null;joystick.dx=joystick.dy=0;
-  totalStats = loadStats(); // Garante que lê sempre os dados mais recentes ao abrir o menu
+  totalStats = loadStats();
   overlay.classList.remove("hidden");
-  overlayActions.innerHTML="";overlayStats.hidden=true;
+  overlayActions.innerHTML="";
 
   if(mode==="pause"){
     saveProgress();
     overlayTitle.textContent="SISTEMA EM PAUSA";
     menuSubtitle.textContent="A partida está guardada e pausada.";
+    overlayStats.hidden=true;
     addButton("CONTINUAR PARTIDA",()=>resumeGame());
     addButton("SAIR PARA O MENU",()=>{saveProgress();showMenu("start")},"secondary");
     menuNote.textContent="O teu progresso foi gravado automaticamente.";
@@ -559,6 +560,15 @@ function showMenu(mode="start"){
   }else{
     overlayTitle.textContent="GRID RUNNER";
     menuSubtitle.textContent="CYBER SURVIVOR · Sobrevive o máximo que puderes.";
+    
+    // Mostra resumo compacto das estatísticas no menu principal
+    overlayStats.hidden=false;
+    overlayStats.innerHTML=`
+      <div class="stat-box"><span>Recorde</span><b>${bestScore.toLocaleString("pt-PT")}</b></div>
+      <div class="stat-box"><span>Inimigos Mortos</span><b>${totalStats.kills.toLocaleString("pt-PT")}</b></div>
+      <div class="stat-box"><span>Nv. Máximo</span><b>Nv. ${totalStats.maxLevel}</b></div>
+      <div class="stat-box"><span>Tempo Jogo</span><b>${formatTime(totalStats.playTime)}</b></div>
+    `;
     
     try{
       const raw=localStorage.getItem(PROGRESS_KEY);
