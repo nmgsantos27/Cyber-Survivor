@@ -1,19 +1,9 @@
-self.addEventListener("install", (e) => {
-  e.waitUntil(
-    caches.open("fortaleza-v1").then((cache) => {
-      return cache.addAll([
-        "./index.html",
-        "./manifest.json",
-        "./icon.png"
-      ]);
-    })
-  );
+self.addEventListener('install', (e) => {
+  self.skipWaiting();
 });
-
-self.addEventListener("fetch", (e) => {
-  e.respondWith(
-    caches.match(e.request).then((response) => {
-      return response || fetch(e.request);
-    })
-  );
+self.addEventListener('activate', (e) => {
+  e.waitUntil(clients.claim());
+});
+self.addEventListener('fetch', (e) => {
+  e.respondWith(fetch(e.request).catch(() => caches.match(e.request)));
 });
