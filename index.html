@@ -19,7 +19,7 @@ body{display:flex;justify-content:center;align-items:center;position:fixed;inset
 #app{width:100%;max-width:520px;height:100vh;height:100dvh;display:flex;flex-direction:column;position:relative;background:#03050c;overflow:hidden;border:1px solid rgba(0,240,255,.2)}
 #hud{display:flex;align-items:center;justify-content:space-between;gap:4px;padding:9px 10px;background:rgba(5,10,25,.97);border-bottom:1px solid rgba(0,240,255,.2);flex-shrink:0;z-index:5}
 .hstat{display:flex;flex-direction:column;align-items:center;line-height:1.1;min-width:0}
-.hstat .val{font-size:clamp(12px,3.4vw,15px);font-weight:900;text-shadow:0 0 8px currentColor}
+.hstat .val{font-size:clamp(12px,3.4vw,15px);font-weight:900;text-shadow:0 0 8px currentColor;transition:transform .2s ease;display:inline-block}
 .hstat .lbl{font-size:7px;font-weight:800;color:#6685a4;margin-top:3px;letter-spacing:.6px}
 .score .val{color:#00f0ff}.best .val{color:#ffb703}.level .val{color:#bd83ff}.energy .val{color:#00f0ff}.coins .val{color:#ffd700}
 #pauseBtn{border:1px solid rgba(0,240,255,.4);background:#0a1930;color:#00f0ff;border-radius:8px;padding:7px 9px;font-weight:900;font-size:12px}
@@ -83,7 +83,7 @@ canvas#cv{display:block;width:100%;height:100%;touch-action:none}
 "use strict";
 
 /* ============================================================
-   GRID RUNNER: CYBER SURVIVOR — V41 (Pausa Corrigida)
+   GRID RUNNER: CYBER SURVIVOR — V42 (Níveis e Moedas Corrigidos)
    ============================================================ */
 
 (function makeIcon(){
@@ -99,8 +99,8 @@ canvas#cv{display:block;width:100%;height:100%;touch-action:none}
   }catch(e){}
 })();
 
-const SAVE_KEY="gridRunnerBestScoreV41";
-const META_KEY="gridRunnerMetaV41";
+const SAVE_KEY="gridRunnerBestScoreV42";
+const META_KEY="gridRunnerMetaV42";
 
 const $=id=>document.getElementById(id);
 const cv=$("cv"),ctx=cv.getContext("2d",{alpha:false});
@@ -184,7 +184,8 @@ function updateHUD(){
   bestLbl.textContent=Math.floor(bestScore).toLocaleString("pt-PT");
   levelLbl.textContent="Nv. "+level;
   energyLbl.textContent=Math.max(0,Math.ceil(energy))+"%";
-  coinsLbl.textContent=meta.coins.toLocaleString("pt-PT");
+  const estimated = Math.max(0, Math.floor(score/50));
+  coinsLbl.textContent=(meta.coins+(running?estimated:0)).toLocaleString("pt-PT");
   xpBar.style.width=clamp(xp/maxXp*100,0,100)+"%";
   if(boss)bossBar.style.width=clamp(boss.hp/boss.maxHp*100,0,100)+"%";
 }
@@ -236,10 +237,8 @@ function renderParticles(){
 
 /* ── CARTAS DE UPGRADE ── */
 function showUpgradeCards(){
-  // Guard: se já há um overlay aberto, não reabrir (evita a "roleta")
   if(!overlay.classList.contains("hidden")) return;
   paused=true;
-  running=true; // running fica true mas update/loop verificam paused
 
   const pool=[
     {id:"rapid",  rarity:"comum", name:"⚡ Overclock",     desc:"+17% cadência de tiro",      apply:()=>player.fireRate=Math.max(7,player.fireRate*.83)},
@@ -259,7 +258,7 @@ function showUpgradeCards(){
   const picks=[];
   const usedIdx=new Set();
   let safety=0;
-  while(picks.length<3 && safety++<50){
+  while(picks.length<3 && safety++<100){
     const roll=Math.random()*100;
     const rarity=roll<60?"comum":roll<90?"raro":"épico";
     const cand=pool.map((c,i)=>({c,i})).filter(o=>o.c.rarity===rarity&&!usedIdx.has(o.i));
@@ -274,7 +273,7 @@ function showUpgradeCards(){
   }
 
   overlay.classList.remove("hidden");
-  overlayTitle.textContent="⬆ NÍVEL "+level;
+  overlayTitle.textContent="⬆ NÍVEL "+(level+1);
   menuSubtitle.textContent="Escolhe uma melhoria";
   overlayStats.hidden=true;
   overlayActions.innerHTML="";
@@ -288,16 +287,21 @@ function showUpgradeCards(){
                    <br><small style="opacity:.55;font-size:9px;text-transform:uppercase;letter-spacing:1px;color:${colors[opt.rarity]}">${opt.rarity}</small>`;
     btn.onclick=()=>{
       opt.apply();
+      level++;
       overlay.classList.add("hidden");
       upgradeQueue--;
+      levelLbl.style.transform="scale(1.35)";
+      setTimeout(()=>levelLbl.style.transform="scale(1)",200);
       if(upgradeQueue>0){showUpgradeCards();return}
       paused=false;lastFrame=0;
-      requestAnimationFrame(loop);
+      cancelAnimationFrame(raf);
+      raf=requestAnimationFrame(loop);
       updateHUD();
     };
     overlayActions.appendChild(btn);
   });
   menuNote.textContent="Cada escolha altera a tua build.";
+  updateHUD();
 }
 
 /* ── SHOP ── */
@@ -353,7 +357,7 @@ function showMenu(mode="start"){
     overlayTitle.textContent="SISTEMA EM PAUSA";
     menuSubtitle.textContent="A partida está pausada.";
     addButton("CONTINUAR PARTIDA",()=>resumeGame());
-    addButton("GUARDAR E SAIR",()=>{saveBest();showMenu("start")},"secondary");
+    addButton("SAIR PARA O MENU",()=>{saveBest();showMenu("start")},"secondary");
     menuNote.textContent="Podes continuar a partir do menu principal.";
   }else if(mode==="over"){
     const elapsed=(performance.now()-runStartTime)/1000;
@@ -376,6 +380,7 @@ function showMenu(mode="start"){
     addButton("LOJA 🏪 ("+meta.coins+" 🪙)",()=>showShop(),"secondary");
     menuNote.textContent="Move-te com o dedo (margem anti-gestos de 18px). Disparo automático.";
   }
+  updateHUD();
 }
 function addButton(label,action,kind=""){
   const b=document.createElement("button");
@@ -426,9 +431,10 @@ function endGame(){
   energy=0;running=false;paused=false;gameOver=true;
   saveBest();
   const gainRate=1+(meta.perms.coinGain||0)*0.15;
-  lastEarnedCoins=Math.floor(score/100*gainRate);
+  lastEarnedCoins=Math.max(1,Math.floor(score/50*gainRate));
   meta.coins+=lastEarnedCoins;
   saveMeta(meta);
+  updateHUD();
   vibrate([140,70,180]);
   cancelAnimationFrame(raf);
   showMenu("over");
@@ -548,7 +554,6 @@ function update(dt){
   if(player.invulnerable>0)player.invulnerable=Math.max(0,player.invulnerable-dt);
   if(player.regen)energy=Math.min(player.maxEnergy,energy+player.regen*dt);
 
-  // Waves
   waveClock+=dt;
   if(wave<WAVES.length-1 && waveClock>=WAVES[wave+1].t){
     wave++;
@@ -556,7 +561,6 @@ function update(dt){
     vibrate([80,40,80]);
   }
 
-  // Movimento
   let vx=0,vy=0;
   if(keys.w||keys.arrowup)vy--;
   if(keys.s||keys.arrowdown)vy++;
@@ -584,7 +588,6 @@ function update(dt){
   player.x=clamp(player.x+vx*player.speed*step,player.radius,w-player.radius);
   player.y=clamp(player.y+vy*player.speed*step,player.radius,h-player.radius);
 
-  // Spawn
   if(!boss&&!pendingUpgrade){
     spawnClock+=step;
     const elapsed=waveClock;
@@ -601,7 +604,6 @@ function update(dt){
   player.fireTimer+=step;
   if(player.fireTimer>=player.fireRate){player.fireTimer=0;shoot()}
 
-  // Orbits
   if(player.orbitals){
     for(let i=0;i<player.orbitals;i++){
       const ang=performance.now()/700+i*(Math.PI*2/player.orbitals);
@@ -618,7 +620,6 @@ function update(dt){
   for(const b of bullets){b.x+=b.vx*step;b.y+=b.vy*step;b.life-=step}
   bullets=bullets.filter(b=>b.life>0&&b.x>-40&&b.x<w+40&&b.y>-40&&b.y<h+40);
 
-  // Boss
   if(boss){
     const a=Math.atan2(player.y-boss.y,player.x-boss.x);
     boss.x=clamp(boss.x+Math.cos(a)*boss.speed*step,boss.radius,w-boss.radius);
@@ -658,7 +659,6 @@ function update(dt){
     if(dist(player,boss)<boss.radius+player.radius)damagePlayer(25);
   }
 
-  // Enemies
   for(const e of enemies){
     const a=Math.atan2(player.y-e.y,player.x-e.x);
     let ex=Math.cos(a),ey=Math.sin(a);
@@ -670,7 +670,6 @@ function update(dt){
     if(dist(player,e)<e.radius+player.radius){damagePlayer(e.damage);e.hp=0}
   }
 
-  // Bullets vs enemies/boss
   for(const b of bullets){
     if(b.hostile){
       if(dist(player,b)<player.radius+5){b.life=0;damagePlayer(9)}
@@ -715,7 +714,6 @@ function update(dt){
   }
   enemies=enemies.filter(e=>e.hp>0);
 
-  // Gems
   for(const g of gems){
     const d=dist(player,g);
     const pr=player.pickupRadius||85;
@@ -724,7 +722,6 @@ function update(dt){
   }
   gems=gems.filter(g=>!g.collected);
 
-  // Energy cells
   for(const c of energyCells){
     c.life-=step;
     if(dist(player,c)<player.radius+c.radius){
@@ -737,23 +734,18 @@ function update(dt){
   }
   energyCells=energyCells.filter(c=>!c.collected&&c.life>0);
 
-  // Pending upgrade module (do boss)
   if(pendingUpgrade&&dist(player,pendingUpgrade)<player.radius+pendingUpgrade.radius){
     pendingUpgrade.data.apply();
     burst(pendingUpgrade.x,pendingUpgrade.y,"#ffb703",20,5);
     pendingUpgrade=null;
-    level++;
-    xp=0;maxXp=Math.floor(maxXp*1.26+7);
     updateHUD();
   }
 
-  // Level up → cartas (apenas quando não pausado e sem overlay aberto)
   if(!boss&&!pendingUpgrade&&xp>=maxXp && !paused){
     if(level%5===0){
       xp=0;
       spawnBoss();
     }else{
-      // Consome o XP ANTES de abrir as cartas
       xp=0;
       maxXp=Math.floor(maxXp*1.26+7);
       upgradeQueue++;
@@ -864,7 +856,7 @@ function render(){
   }
 }
 
-/* ── LOOP (CORRIGIDO: para em paused) ── */
+/* ── LOOP ── */
 function loop(now){
   if(!running || paused) return;
   if(!lastFrame)lastFrame=now;
