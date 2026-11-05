@@ -86,7 +86,7 @@ canvas#cv{display:block;width:100%;height:100%;touch-action:none}
 "use strict";
 
 /* ============================================================
-   GRID RUNNER: CYBER SURVIVOR — V48 (Ultimate Balanced)
+   GRID RUNNER: CYBER SURVIVOR — V49 (Com Autosave Completo)
    ============================================================ */
 
 (function makeIcon(){
@@ -102,8 +102,9 @@ canvas#cv{display:block;width:100%;height:100%;touch-action:none}
   }catch(e){}
 })();
 
-const SAVE_KEY="gridRunnerBestScoreV48";
-const META_KEY="gridRunnerMetaV48";
+const SAVE_KEY="gridRunnerBestScoreV49";
+const META_KEY="gridRunnerMetaV49";
+const PROGRESS_KEY="gridRunnerProgressV49";
 
 const $=id=>document.getElementById(id);
 const cv=$("cv"),ctx=cv.getContext("2d",{alpha:false});
@@ -131,9 +132,9 @@ let meta=loadMeta();
 /* ── STATE ── */
 let bestScore=0;try{bestScore=Number(localStorage.getItem(SAVE_KEY))||0}catch(e){}
 let running=false,paused=false,gameOver=false;
-let score=0,level=1,xp=0,maxXp=45,energy=100; // XP inicial mais acessível
+let score=0,level=1,xp=0,maxXp=45,energy=100;
 let player,enemies=[],bullets=[],gems=[],energyCells=[],particles=[],boss=null,pendingUpgrade=null;
-let spawnClock=0,cellClock=0,idleClock=0,alertClock=0;
+let spawnClock=0,cellClock=0,idleClock=0,alertClock=0,saveClock=0;
 let lastFrame=0,raf=0;
 let wave=0,waveClock=0;
 let upgradeQueue=0;
@@ -141,6 +142,7 @@ let runStartTime=0;
 let revivesLeft=0;
 let lastEarnedCoins=0;
 let screenShake=0;
+let hasSavedProgress=false;
 
 let cardsLockUntil=0;
 
@@ -176,6 +178,41 @@ function getMaxEnemies(){
   return MAX_ENEMIES_PER_WAVE[idx];
 }
 
+/* ── PROGRESS SAVE / LOAD ── */
+function saveProgress(){
+  if(!running || gameOver || !player) return;
+  try{
+    const data={
+      score,level,xp,maxXp,energy,wave,waveClock,
+      player:{...player},
+      enemies,gems,energyCells,boss,
+      runStartTime
+    };
+    localStorage.setItem(PROGRESS_KEY, JSON.stringify(data));
+    hasSavedProgress=true;
+  }catch(e){}
+}
+
+function clearProgress(){
+  try{ localStorage.removeItem(PROGRESS_KEY); }catch(e){}
+  hasSavedProgress=false;
+}
+
+function restoreProgress(){
+  try{
+    const raw=localStorage.getItem(PROGRESS_KEY);
+    if(!raw) return false;
+    const p=JSON.parse(raw);
+    if(!p || !p.player || p.energy<=0) return false;
+    score=p.score||0; level=p.level||1; xp=p.xp||0; maxXp=p.maxXp||45; energy=p.energy||100;
+    wave=p.wave||0; waveClock=p.waveClock||0; runStartTime=p.runStartTime||performance.now();
+    player={...newPlayer(cv.clientWidth,cv.clientHeight), ...p.player};
+    enemies=p.enemies||[]; gems=p.gems||[]; energyCells=p.energyCells||[]; boss=p.boss||null;
+    if(boss) bossBarContainer.style.display="block";
+    return true;
+  }catch(e){ return false; }
+}
+
 /* ── UI ── */
 function showAlert(msg){
   infoAlert.textContent=msg;infoAlert.classList.add("show");
@@ -201,7 +238,7 @@ function updateHUD(){
   energyLbl.textContent=Math.max(0,Math.ceil(energy))+"%";
   const estimated=Math.max(0,Math.floor(score/50));
   coinsLbl.textContent=(meta.coins+(running?estimated:0)).toLocaleString("pt-PT");
-  xpBar.style.width=clamp(xp/maxXp*100,0,100)+"%";
+  xpBar.style.width=clamp(xp/maxXp*100,0,100)+"%N";
   if(boss)bossBar.style.width=clamp(boss.hp/boss.maxHp*100,0,100)+"%";
 }
 function saveBest(){
@@ -337,12 +374,12 @@ function showUpgradeCards(){
     picked=true;
     opt.apply();
     level++;
-    // Curva progressiva equilibrada: maxXp * 1.35 + 20
     maxXp=Math.floor(maxXp*1.35+20);
     overlay.classList.add("hidden");
     upgradeQueue--;
     levelLbl.style.transform="scale(1.35)";
     setTimeout(()=>levelLbl.style.transform="scale(1)",200);
+    saveProgress();
     if(upgradeQueue>0){showUpgradeCards();return}
     paused=false;lastFrame=0;
     cancelAnimationFrame(raf);
@@ -404,12 +441,14 @@ function showMenu(mode="start"){
   overlayActions.innerHTML="";overlayStats.hidden=true;
 
   if(mode==="pause"){
+    saveProgress();
     overlayTitle.textContent="SISTEMA EM PAUSA";
-    menuSubtitle.textContent="A partida está pausada.";
+    menuSubtitle.textContent="A partida está guardada e pausada.";
     addButton("CONTINUAR PARTIDA",()=>resumeGame());
-    addButton("SAIR PARA O MENU",()=>{saveBest();showMenu("start")},"secondary");
-    menuNote.textContent="Podes continuar a partir do menu principal.";
+    addButton("SAIR PARA O MENU",()=>{saveProgress();showMenu("start")},"secondary");
+    menuNote.textContent="O teu progresso foi gravado automaticamente.";
   }else if(mode==="over"){
+    clearProgress();
     const elapsed=(performance.now()-runStartTime)/1000;
     const mm=Math.floor(elapsed/60),ss=Math.floor(elapsed%60);
     overlayTitle.textContent="FALHA DE SISTEMA";
@@ -420,16 +459,28 @@ function showMenu(mode="start"){
                            <span>Onda: <b>${wave+1}</b></span>
                            <span>Tempo: <b>${mm}m ${ss}s</b></span>
                            <span>Recorde: <b>${bestScore}</b></span>`;
-    addButton("TENTAR DE NOVO",()=>startGame(),"");
+    addButton("TENTAR DE NOVO",()=>startGame(false),"");
     addButton("LOJA 🏪",()=>showShop(),"secondary");
     addButton("MENU",()=>showMenu("start"),"secondary");
     menuNote.textContent=`Ganhaste ${lastEarnedCoins} 🪙 nesta run. Total: ${meta.coins} 🪙`;
   }else{
     overlayTitle.textContent="GRID RUNNER";
     menuSubtitle.textContent="CYBER SURVIVOR · Sobrevive o máximo que puderes.";
-    addButton("INICIALIZAR SISTEMA",()=>startGame(),"");
+    
+    // Verificar se existe progresso guardado
+    try{
+      const raw=localStorage.getItem(PROGRESS_KEY);
+      hasSavedProgress=!!raw;
+    }catch(e){hasSavedProgress=false;}
+
+    if(hasSavedProgress){
+      addButton("RETOMAR PARTIDA",()=>startGame(true),"gold");
+      addButton("NOVO JOGO",()=>startGame(false),"secondary");
+    }else{
+      addButton("INICIALIZAR SISTEMA",()=>startGame(false),"");
+    }
     addButton("LOJA 🏪 ("+meta.coins+" 🪙)",()=>showShop(),"secondary");
-    menuNote.textContent="Move-te com o dedo (margem anti-gestos de 18px). Disparo automático.";
+    menuNote.textContent="Progresso guardado automaticamente. Disparo automático.";
   }
   updateHUD();
 }
@@ -441,8 +492,20 @@ function addButton(label,action,kind=""){
 }
 
 /* ── START/END ── */
-function startGame(){
+function startGame(resume=false){
   resizeCanvas();
+  if(resume && restoreProgress()){
+    gameOver=false;paused=false;running=true;screenShake=0;
+    overlay.classList.add("hidden");
+    updateHUD();
+    lastFrame=0;
+    cancelAnimationFrame(raf);
+    raf=requestAnimationFrame(loop);
+    showAlert("💾 PARTIDA RETOMADA!");
+    return;
+  }
+
+  clearProgress();
   score=0;level=1;xp=0;maxXp=45;
   player=newPlayer(cv.clientWidth,cv.clientHeight);
   energy=player.maxEnergy;
@@ -457,6 +520,7 @@ function startGame(){
   overlay.classList.add("hidden");
   updateHUD();
   runStartTime=performance.now();
+  saveProgress();
   lastFrame=0;
   cancelAnimationFrame(raf);
   raf=requestAnimationFrame(loop);
@@ -477,11 +541,13 @@ function endGame(){
     burst(player.x,player.y,"#00f0ff",35,6);
     showAlert("💾 BACKUP ATIVADO! Revives: "+revivesLeft);
     vibrate([200,80,200]);
+    saveProgress();
     updateHUD();
     return;
   }
   energy=0;running=false;paused=false;gameOver=true;
   saveBest();
+  clearProgress();
   const gainRate=1+(meta.perms.coinGain||0)*0.15;
   lastEarnedCoins=Math.max(1,Math.floor(score/50*gainRate));
   meta.coins+=lastEarnedCoins;
@@ -492,7 +558,7 @@ function endGame(){
   showMenu("over");
 }
 $("pauseBtn").addEventListener("click",()=>{
-  if(running&&!paused){saveBest();showMenu("pause")}
+  if(running&&!paused){saveProgress();showMenu("pause")}
   else if(paused)resumeGame();
 });
 
@@ -564,7 +630,7 @@ function damagePlayer(amount){
   const dmg=Math.round(amount+(level-1)*0.7);
   energy=Math.max(0,energy-dmg);
   player.invulnerable=.8;
-  screenShake=10; // Efeito de abanão no ecrã
+  screenShake=10;
   burst(player.x,player.y,"#ff3864",15,5);
   vibrate([120,40,120]);
   if(player.nova){
@@ -601,6 +667,9 @@ function update(dt){
   if(!running || paused) return;
   const w=cv.clientWidth,h=cv.clientHeight,step=dt*60;
 
+  saveClock+=step;
+  if(saveClock>=300){saveClock=0; saveProgress();} // Autosave a cada ~5 segundos de jogo real
+
   if(screenShake>0) screenShake=Math.max(0, screenShake - step*0.8);
   if(player.invulnerable>0)player.invulnerable=Math.max(0,player.invulnerable-dt);
   if(player.regen)energy=Math.min(player.maxEnergy,energy+player.regen*dt);
@@ -610,6 +679,7 @@ function update(dt){
     wave++;
     showAlert("🌊 ONDA "+(wave+1)+": "+WAVES[wave].name);
     vibrate([80,40,80]);
+    saveProgress();
   }
 
   let vx=0,vy=0;
@@ -626,7 +696,6 @@ function update(dt){
     player.nextIdleDmg=0;
   }else{
     idleClock+=dt;
-    // Aviso prévio aos 3.5 segundos
     if(idleClock>=3.5 && idleClock<3.7){
       showAlert("⚠️ ALERTA: SOBREAQUECIMENTO PRÓXIMO!");
     }
@@ -746,6 +815,7 @@ function update(dt){
         maxXp=Math.floor(maxXp*1.35+20);
         spawnUpgradeModule();
         saveBest();
+        saveProgress();
       }
       continue;
     }
@@ -796,6 +866,7 @@ function update(dt){
     pendingUpgrade.data.apply();
     burst(pendingUpgrade.x,pendingUpgrade.y,"#ffb703",22,5);
     pendingUpgrade=null;
+    saveProgress();
     updateHUD();
   }
 
@@ -806,6 +877,7 @@ function update(dt){
     }else{
       xp=0;
       upgradeQueue++;
+      saveProgress();
       showUpgradeCards();
     }
   }
@@ -901,7 +973,6 @@ function render(){
       }
     }
     ctx.save();
-    // Pisca a amarelo/vermelho perto de sobreaquecer (entre 3.5s e 5s parado)
     let pColor="#00f0ff";
     if(idleClock>=3.5){
       pColor = Math.floor(performance.now()/80)%2===0 ? "#ffb703" : "#ff3864";
@@ -977,13 +1048,16 @@ window.addEventListener("keydown",e=>{
   const k=e.key.toLowerCase();
   if(["arrowup","arrowdown","arrowleft","arrowright"," "].includes(k))e.preventDefault();
   keys[k]=true;
-  if(k==="escape"&&running&&!paused){saveBest();showMenu("pause")}
+  if(k==="escape"&&running&&!paused){saveProgress();showMenu("pause")}
 },{passive:false});
 window.addEventListener("keyup",e=>{keys[e.key.toLowerCase()]=false});
-window.addEventListener("blur",()=>{if(running&&!paused){saveBest();showMenu("pause")}});
+
+window.addEventListener("blur",()=>{if(running&&!paused){saveProgress();showMenu("pause")}});
 document.addEventListener("visibilitychange",()=>{
-  if(document.hidden&&running&&!paused){saveBest();showMenu("pause")}
+  if(document.hidden&&running&&!paused){saveProgress();}
 });
+window.addEventListener("beforeunload",saveProgress);
+
 window.addEventListener("resize",resizeCanvas);
 window.addEventListener("orientationchange",()=>setTimeout(resizeCanvas,150));
 
