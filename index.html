@@ -86,8 +86,8 @@ canvas#cv{display:block;width:100%;height:100%;touch-action:none}
 "use strict";
 
 /* ============================================================
-   GRID RUNNER: CYBER SURVIVOR — V44
-   Cartas com proteção anti-clique acidental + ondas maiores
+   GRID RUNNER: CYBER SURVIVOR — V46
+   Progressão lenta: maxXp inicial 60, crescimento ×1.85+25
    ============================================================ */
 
 (function makeIcon(){
@@ -103,8 +103,8 @@ canvas#cv{display:block;width:100%;height:100%;touch-action:none}
   }catch(e){}
 })();
 
-const SAVE_KEY="gridRunnerBestScoreV44";
-const META_KEY="gridRunnerMetaV44";
+const SAVE_KEY="gridRunnerBestScoreV46";
+const META_KEY="gridRunnerMetaV46";
 
 const $=id=>document.getElementById(id);
 const cv=$("cv"),ctx=cv.getContext("2d",{alpha:false});
@@ -132,7 +132,7 @@ let meta=loadMeta();
 /* ── ESTADO ── */
 let bestScore=0;try{bestScore=Number(localStorage.getItem(SAVE_KEY))||0}catch(e){}
 let running=false,paused=false,gameOver=false;
-let score=0,level=1,xp=0,maxXp=30,energy=100;
+let score=0,level=1,xp=0,maxXp=60,energy=100;   // maxXp inicial 60
 let player,enemies=[],bullets=[],gems=[],energyCells=[],particles=[],boss=null,pendingUpgrade=null;
 let spawnClock=0,cellClock=0,saveClock=0,idleClock=0,alertClock=0;
 let lastFrame=0,raf=0;
@@ -142,9 +142,7 @@ let runStartTime=0;
 let revivesLeft=0;
 let lastEarnedCoins=0;
 
-// Estado de bloqueio global das cartas
 let cardsLockUntil=0;
-let cardsBlockedPointer=null;
 
 const keys=Object.create(null);
 const joystick={active:false,id:null,startX:0,startY:0,x:0,y:0,dx:0,dy:0};
@@ -152,12 +150,13 @@ const rand=(a,b)=>a+Math.random()*(b-a);
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 const dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
 
+/* XP base ainda mais baixo (~30% menos que V45) */
 const TYPES={
-  bug:    {hp:1,speed:1.28,r:8, color:"#70e000",score:12,xp:9, damage:7},
-  glitch: {hp:2,speed:1.65,r:10,color:"#00d9ff",score:18,xp:12,damage:9},
-  worm:   {hp:3,speed:0.88,r:14,color:"#ff3864",score:28,xp:16,damage:12},
-  runner: {hp:2,speed:2.15,r:8, color:"#bd83ff",score:22,xp:13,damage:10},
-  tank:   {hp:6,speed:0.72,r:17,color:"#ff9f1c",score:40,xp:22,damage:14}
+  bug:    {hp:1,speed:1.28,r:8, color:"#70e000",score:12,xp:4, damage:7},
+  glitch: {hp:2,speed:1.65,r:10,color:"#00d9ff",score:18,xp:5, damage:9},
+  worm:   {hp:3,speed:0.88,r:14,color:"#ff3864",score:28,xp:7, damage:12},
+  runner: {hp:2,speed:2.15,r:8, color:"#bd83ff",score:22,xp:6, damage:10},
+  tank:   {hp:6,speed:0.72,r:17,color:"#ff9f1c",score:40,xp:10,damage:14}
 };
 
 const WAVES=[
@@ -252,20 +251,17 @@ function renderParticles(){
   }
 }
 
-/* ── CARTAS DE UPGRADE (COM PROTEÇÃO ANTI-CLIQUE) ── */
+/* ── CARTAS ── */
 function showUpgradeCards(){
   if(!overlay.classList.contains("hidden")) return;
   paused=true;
 
-  // Desliga joystick imediatamente
   joystick.active=false;
   joystick.id=null;
   joystick.dx=joystick.dy=0;
 
-  // Bloqueio temporal de 900ms
   const LOCK_MS=900;
   cardsLockUntil=performance.now()+LOCK_MS;
-  cardsBlockedPointer=null; // já limpámos o joystick acima
 
   const pool=[
     {id:"rapid",  rarity:"comum", name:"⚡ Overclock",     desc:"+17% cadência de tiro",      apply:()=>player.fireRate=Math.max(7,player.fireRate*.83)},
@@ -320,7 +316,6 @@ function showUpgradeCards(){
                    <br><small style="opacity:.9;font-weight:600;color:#cfe9ff">${opt.desc}</small>
                    <br><small style="opacity:.55;font-size:9px;text-transform:uppercase;letter-spacing:1px;color:${colors[opt.rarity]}">${opt.rarity}</small>`;
 
-    // Só aceita pointerdown+pointerup no próprio botão
     let downId=null;
     btn.addEventListener("pointerdown",(e)=>{
       if(performance.now()<cardsLockUntil)return;
@@ -351,6 +346,8 @@ function showUpgradeCards(){
     picked=true;
     opt.apply();
     level++;
+    // Curva de XP agressiva: ×1.85 + 25
+    maxXp=Math.floor(maxXp*1.85+25);
     overlay.classList.add("hidden");
     upgradeQueue--;
     levelLbl.style.transform="scale(1.35)";
@@ -455,7 +452,7 @@ function addButton(label,action,kind=""){
 /* ── START/END ── */
 function startGame(){
   resizeCanvas();
-  score=0;level=1;xp=0;maxXp=30;
+  score=0;level=1;xp=0;maxXp=60;
   player=newPlayer(cv.clientWidth,cv.clientHeight);
   energy=player.maxEnergy;
   revivesLeft=meta.perms.revive||0;
@@ -537,7 +534,7 @@ function spawnEnemy(){
     radius:base.r,color:base.color,
     damage:Math.round(base.damage+extra*0.8),
     score:base.score,
-    xpValue:Math.ceil(base.xp*(1+wave*0.15))
+    xpValue:base.xp
   });
 }
 
@@ -749,7 +746,8 @@ function update(dt){
         boss=null;
         bossBarContainer.style.display="none";
         level+=(level%5===0)?2:1;
-        xp=0;maxXp=Math.floor(maxXp*1.26+7);
+        xp=0;
+        maxXp=Math.floor(maxXp*1.85+25);
         spawnUpgradeModule();
         saveBest();
       }
@@ -811,7 +809,6 @@ function update(dt){
       spawnBoss();
     }else{
       xp=0;
-      maxXp=Math.floor(maxXp*1.26+7);
       upgradeQueue++;
       showUpgradeCards();
     }
