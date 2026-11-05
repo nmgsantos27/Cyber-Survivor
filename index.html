@@ -960,7 +960,7 @@ function update(dt){
   player.y=clamp(player.y+vy*player.speed*step,player.radius,h-player.radius);
 
   weaponPickupClock += step;
-  if(weaponPickupClock >= 1800 && weaponPickups.length < 1){
+  if(weaponPickupClock >= 2200 && weaponPickups.length < 1){
     weaponPickupClock = 0;
     const types=["laser","homing","scatter"];
     const chosenType=types[Math.floor(Math.random()*types.length)];
@@ -977,7 +977,7 @@ function update(dt){
   }
 
   cellClock+=step;
-  if(cellClock>=600&&energyCells.length<2){
+  if(cellClock>=1000&&energyCells.length<2){
     cellClock=0;
     energyCells.push({x:rand(30,w-30),y:rand(35,h-35),radius:11,value:25,life:600});
   }
