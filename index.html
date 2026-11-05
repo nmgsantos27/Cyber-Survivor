@@ -86,7 +86,7 @@ canvas#cv{display:block;width:100%;height:100%;touch-action:none}
 "use strict";
 
 /* ============================================================
-   GRID RUNNER: CYBER SURVIVOR — V53 (Fix Recorde & Balanceamento Laser)
+   GRID RUNNER: CYBER SURVIVOR — V54 (Armas Temporárias / Power-ups)
    ============================================================ */
 
 (function makeIcon(){
@@ -102,9 +102,9 @@ canvas#cv{display:block;width:100%;height:100%;touch-action:none}
   }catch(e){}
 })();
 
-const SAVE_KEY="gridRunnerBestScoreV53";
-const META_KEY="gridRunnerMetaV53";
-const PROGRESS_KEY="gridRunnerProgressV53";
+const SAVE_KEY="gridRunnerBestScoreV54";
+const META_KEY="gridRunnerMetaV54";
+const PROGRESS_KEY="gridRunnerProgressV54";
 
 const $=id=>document.getElementById(id);
 const cv=$("cv"),ctx=cv.getContext("2d",{alpha:false});
@@ -133,8 +133,8 @@ let meta=loadMeta();
 let bestScore=0;try{bestScore=Number(localStorage.getItem(SAVE_KEY))||0}catch(e){}
 let running=false,paused=false,gameOver=false;
 let score=0,level=1,xp=0,maxXp=45,energy=100;
-let player,enemies=[],bullets=[],gems=[],energyCells=[],particles=[],mines=[],boss=null,pendingUpgrade=null;
-let spawnClock=0,cellClock=0,idleClock=0,alertClock=0,saveClock=0,mineDropClock=0;
+let player,enemies=[],bullets=[],gems=[],energyCells=[],particles=[],mines=[],weaponPickups=[],boss=null,pendingUpgrade=null;
+let spawnClock=0,cellClock=0,idleClock=0,alertClock=0,saveClock=0,mineDropClock=0,weaponPickupClock=0;
 let lastFrame=0,raf=0;
 let wave=0,waveClock=0;
 let upgradeQueue=0;
@@ -185,7 +185,7 @@ function saveProgress(){
     const data={
       score,level,xp,maxXp,energy,wave,waveClock,
       player:{...player},
-      enemies,gems,energyCells,mines,boss,
+      enemies,gems,energyCells,mines,weaponPickups,boss,
       runStartTime
     };
     localStorage.setItem(PROGRESS_KEY, JSON.stringify(data));
@@ -207,7 +207,7 @@ function restoreProgress(){
     score=p.score||0; level=p.level||1; xp=p.xp||0; maxXp=p.maxXp||45; energy=p.energy||100;
     wave=p.wave||0; waveClock=p.waveClock||0; runStartTime=p.runStartTime||performance.now();
     player={...newPlayer(cv.clientWidth,cv.clientHeight), ...p.player};
-    enemies=p.enemies||[]; gems=p.gems||[]; energyCells=p.energyCells||[]; mines=p.mines||[]; boss=p.boss||null;
+    enemies=p.enemies||[]; gems=p.gems||[]; energyCells=p.energyCells||[]; mines=p.mines||[]; weaponPickups=p.weaponPickups||[]; boss=p.boss||null;
     if(boss) bossBarContainer.style.display="block";
     return true;
   }catch(e){ return false; }
@@ -242,7 +242,7 @@ function updateHUD(){
   const xpPct = clamp((xp / maxXp) * 100, 0, 100);
   xpBar.style.width = xpPct + "%";
 
-  if(boss)bossBar.style.width=clamp(boss.hp/boss.maxHp*100,0,100)+"%";
+  if(boss)bossBar.style.width=clamp(boss.hp/boss.maxHp*100,0,100)+"%N";
 }
 
 function saveBest(){
@@ -268,9 +268,8 @@ function newPlayer(w,h){
     weaponType:"plasma",invulnerable:0,
     maxEnergy:maxE,
     regen:0,orbitals:0,nova:0,critChance:0,pierce:0,
-    laser:0,      // Raio Laser equilibrado (alcance curto/médio e dano gradual)
-    homing:0,     // Mísseis Teleguiados
-    mines:0       // Minas Cibernéticas
+    tempWeapon:null,   // Armas temporárias: "laser", "homing", "scatter"
+    tempTimer:0        // Duração restante em segundos
   };
 }
 
@@ -317,9 +316,6 @@ function showUpgradeCards(){
     {id:"crit",   rarity:"raro",  name:"🎲 Crítico",       desc:"+15% chance de 2x dano",      apply:()=>player.critChance=(player.critChance||0)+.15},
     {id:"pierce", rarity:"raro",  name:"🗡 Perfurante",    desc:"Balas atravessam 1 inimigo",  apply:()=>player.pierce=(player.pierce||0)+1},
     {id:"regen",  rarity:"raro",  name:"💚 Regeneração",   desc:"+1.2% energia/seg",           apply:()=>player.regen=(player.regen||0)+1.2},
-    {id:"laser",  rarity:"raro",  name:"⚡ Feixe Laser",   desc:"Foco de dano a curta distância",apply:()=>player.laser=(player.laser||0)+1},
-    {id:"homing", rarity:"raro",  name:"💥 Mísseis Guia",  desc:"Dispara mísseis teleguiados", apply:()=>player.homing=(player.homing||0)+1},
-    {id:"mines",  rarity:"épico", name:"💣 Minas Cibern.", desc:"Deixa minas explosivas no chão",apply:()=>player.mines=(player.mines||0)+1},
     {id:"orbit",  rarity:"épico", name:"🪐 Satélite",      desc:"Orbe que dispara sozinho",    apply:()=>player.orbitals=(player.orbitals||0)+1},
     {id:"nova",   rarity:"épico", name:"💥 Nova",          desc:"Explosão defensiva ao levar dano", apply:()=>player.nova=(player.nova||0)+1}
   ];
@@ -329,7 +325,7 @@ function showUpgradeCards(){
   let safety=0;
   while(picks.length<3 && safety++<100){
     const roll=Math.random()*100;
-    const rarity=roll<55?"comum":roll<85?"raro":"épico";
+    const rarity=roll<60?"comum":roll<90?"raro":"épico";
     const cand=pool.map((c,i)=>({c,i})).filter(o=>o.c.rarity===rarity&&!usedIdx.has(o.i));
     if(cand.length){
       const pick=cand[Math.floor(Math.random()*cand.length)];
@@ -343,7 +339,7 @@ function showUpgradeCards(){
 
   overlay.classList.remove("hidden");
   overlayTitle.textContent="⬆ NÍVEL "+(level+1);
-  menuSubtitle.textContent="Escolhe uma nova arma ou melhoria";
+  menuSubtitle.textContent="Escolhe uma melhoria táctica";
   overlayStats.hidden=true;
   overlayActions.innerHTML="";
 
@@ -400,7 +396,7 @@ function showUpgradeCards(){
     raf=requestAnimationFrame(loop);
     updateHUD();
   }
-  menuNote.textContent="Expande o teu arsenal táctico.";
+  menuNote.textContent="Cada escolha altera a tua build de sobrevivência.";
   updateHUD();
 }
 
@@ -523,9 +519,9 @@ function startGame(resume=false){
   player=newPlayer(cv.clientWidth,cv.clientHeight);
   energy=player.maxEnergy;
   revivesLeft=meta.perms.revive||0;
-  enemies=[];bullets=[];gems=[];energyCells=[];particles=[];mines=[];
+  enemies=[];bullets=[];gems=[];energyCells=[];particles=[];mines=[];weaponPickups=[];
   boss=null;pendingUpgrade=null;
-  spawnClock=0;cellClock=0;idleClock=0;mineDropClock=0;
+  spawnClock=0;cellClock=0;idleClock=0;mineDropClock=0;weaponPickupClock=0;
   wave=0;waveClock=0;upgradeQueue=0;
   gameOver=false;paused=false;running=true;
   screenShake=0;
@@ -655,12 +651,59 @@ function damagePlayer(amount){
   if(energy<=0)endGame();
 }
 
-/* ── SHOOT ── */
+/* ── SHOOT (COM ARMAS TEMPORÁRIAS) ── */
 function shoot(){
   let target=null,min=player.range;
   if(boss)target=boss;
   else for(const e of enemies){const d=dist(player,e);if(d<min){min=d;target=e}}
-  if(!target)return;
+  if(!target && player.tempWeapon !== "homing")return;
+
+  // Se tiver Arma Temporária Ativa
+  if(player.tempWeapon === "laser" && target){
+    // Feixe laser focado direto ao alvo
+    const angle=Math.atan2(target.y-player.y,target.x-player.x);
+    bullets.push({
+      x:player.x,y:player.y,
+      vx:Math.cos(angle)*14,vy:Math.sin(angle)*14,
+      damage:player.damage+3,life:25,color:"#00f0ff",pierceLeft:2,laserBeam:true
+    });
+    return;
+  }
+
+  if(player.tempWeapon === "homing"){
+    // Disparo de Mísseis Teleguiados Temporários
+    for(let m=0; m<3; m++){
+      let ta = enemies.length ? enemies[Math.floor(Math.random()*enemies.length)] : boss;
+      if(!ta) break;
+      const ma=Math.atan2(ta.y-player.y, ta.x-player.x);
+      bullets.push({
+        x:player.x, y:player.y,
+        vx:Math.cos(ma)*6, vy:Math.sin(ma)*6,
+        damage:player.damage*1.8, life:90,
+        color:"#00e5f5", pierceLeft:0,
+        homing:true
+      });
+    }
+    return;
+  }
+
+  if(player.tempWeapon === "scatter"){
+    // Disparo em leque triplo
+    if(!target) return;
+    const baseAngle=Math.atan2(target.y-player.y,target.x-player.x);
+    for(let k=-1; k<=1; k++){
+      const a = baseAngle + k*0.25;
+      bullets.push({
+        x:player.x, y:player.y,
+        vx:Math.cos(a)*10, vy:Math.sin(a)*10,
+        damage:player.damage+1, life:40,
+        color:"#ffb703", pierceLeft:1
+      });
+    }
+    return;
+  }
+
+  // Arma Normal de Plasma
   const angle=Math.atan2(target.y-player.y,target.x-player.x);
   const count=Math.min(5,player.bulletCount);
   for(let i=0;i<count;i++){
@@ -674,20 +717,6 @@ function shoot(){
       homing:false
     });
   }
-
-  if(player.homing > 0 && enemies.length > 0){
-    for(let m=0; m<player.homing; m++){
-      const ta=enemies[Math.floor(Math.random()*enemies.length)];
-      const ma=Math.atan2(ta.y-player.y, ta.x-player.x);
-      bullets.push({
-        x:player.x, y:player.y,
-        vx:Math.cos(ma)*6, vy:Math.sin(ma)*6,
-        damage:player.damage*1.5, life:100,
-        color:"#00e5f5", pierceLeft:0,
-        homing:true
-      });
-    }
-  }
 }
 
 /* ── UPDATE ── */
@@ -697,6 +726,16 @@ function update(dt){
 
   saveClock+=step;
   if(saveClock>=300){saveClock=0; saveProgress();}
+
+  // Gestão do Temporizador da Arma Temporária
+  if(player.tempWeapon){
+    player.tempTimer -= dt;
+    if(player.tempTimer <= 0){
+      player.tempWeapon = null;
+      showAlert("⏱ Arma temporária esgotada! Arma normal restaurada.");
+      vibrate(50);
+    }
+  }
 
   if(screenShake>0) screenShake=Math.max(0, screenShake - step*0.8);
   if(player.invulnerable>0)player.invulnerable=Math.max(0,player.invulnerable-dt);
@@ -741,12 +780,16 @@ function update(dt){
   player.x=clamp(player.x+vx*player.speed*step,player.radius,w-player.radius);
   player.y=clamp(player.y+vy*player.speed*step,player.radius,h-player.radius);
 
-  if(player.mines > 0){
-    mineDropClock += step;
-    if(mineDropClock >= 120){
-      mineDropClock = 0;
-      mines.push({x: player.x, y: player.y, radius: 12, damage: 4 + player.mines*2, life: 600});
-    }
+  // Spawnar Módulos de Armas Temporárias na Arena (a cada ~35 segundos)
+  weaponPickupClock += step;
+  if(weaponPickupClock >= 2100 && weaponPickups.length < 1){
+    weaponPickupClock = 0;
+    const types=["laser","homing","scatter"];
+    const chosenType=types[Math.floor(Math.random()*types.length)];
+    weaponPickups.push({
+      x: rand(40, w-40), y: rand(40, h-40),
+      radius: 14, type: chosenType, life: 900
+    });
   }
 
   if(!boss && !pendingUpgrade && enemies.length < getMaxEnemies()){
@@ -777,21 +820,6 @@ function update(dt){
     }
   }
 
-  // Raio Laser Equilibrado (Curto alcance e dano progressivo moderado)
-  if(player.laser > 0 && enemies.length > 0){
-    for(const e of enemies){
-      const d = dist(player, e);
-      if(d < 90 + (player.laser * 15)){ // Alcance limitado e controlável
-        e.hp -= (0.04 * player.laser * step);
-        if(Math.random() < 0.3) burst(e.x, e.y, "#00f0ff", 1, 1);
-        if(e.hp <= 0){
-          score += e.score;
-          gems.push({x:e.x, y:e.y, value:e.xpValue});
-        }
-      }
-    }
-  }
-
   for(const b of bullets){
     if(b.homing && enemies.length > 0){
       let nt = enemies[0], nd = dist(b, nt);
@@ -803,18 +831,19 @@ function update(dt){
   }
   bullets=bullets.filter(b=>b.life>0&&b.x>-40&&b.x<w+40&&b.y>-40&&b.y<h+40);
 
-  for(const m of mines){
-    m.life -= step;
-    for(const e of enemies){
-      if(dist(m, e) < m.radius + e.radius){
-        e.hp -= m.damage;
-        burst(m.x, m.y, "#ffb703", 15, 5);
-        m.exploded = true;
-        break;
-      }
+  // Recolher Módulos de Armas Temporárias
+  for(const wp of weaponPickups){
+    wp.life -= step;
+    if(dist(player, wp) < player.radius + wp.radius){
+      wp.collected = true;
+      player.tempWeapon = wp.type;
+      player.tempTimer = 15; // 15 segundos de duração
+      const names = {laser:"⚡ FEIXE LÁSER", homing:"💥 MÍSSEIS TELEGUIDADOS", scatter:"🔥 DISPARO TRIPLO"};
+      showAlert("🔥 ARMA ATIVADA: " + names[wp.type] + " (15s)");
+      vibrate([100,50,100]);
     }
   }
-  mines = mines.filter(m => !m.exploded && m.life > 0);
+  weaponPickups = weaponPickups.filter(wp => !wp.collected && wp.life > 0);
 
   if(boss){
     const a=Math.atan2(player.y-boss.y,player.x-boss.x);
@@ -914,7 +943,6 @@ function update(dt){
   }
   enemies=enemies.filter(e=>e.hp>0);
 
-  // Verificação em tempo real do Recorde à medida que os pontos sobem
   if(score > bestScore){
     bestScore = Math.floor(score);
     try{ localStorage.setItem(SAVE_KEY, String(bestScore)); }catch(e){}
@@ -991,12 +1019,12 @@ function render(){
     ctx.restore();
   }
 
-  for(const m of mines){
+  // Renderizar Módulos de Armas Temporárias no Chão
+  for(const wp of weaponPickups){
     ctx.save();
-    ctx.fillStyle="#ffb703"; ctx.shadowColor="#ffb703"; ctx.shadowBlur=10;
-    ctx.beginPath(); ctx.arc(m.x, m.y, 6, 0, Math.PI*2); ctx.fill();
-    ctx.strokeStyle="rgba(255,183,3,0.5)"; ctx.lineWidth=1.5;
-    ctx.beginPath(); ctx.arc(m.x, m.y, m.radius, 0, Math.PI*2); ctx.stroke();
+    ctx.fillStyle="#00f0ff"; ctx.shadowColor="#00f0ff"; ctx.shadowBlur=16;
+    ctx.beginPath(); ctx.arc(wp.x, wp.y, wp.radius, 0, Math.PI*2); ctx.fill();
+    ctx.strokeStyle="#fff"; ctx.lineWidth = 2; ctx.stroke();
     ctx.restore();
   }
 
@@ -1048,29 +1076,6 @@ function render(){
     ctx.restore();
   }
 
-  // Renderizar aura do Feixe Laser em redor do jogador (área de proteção de curto alcance)
-  if(player.laser > 0){
-    ctx.save();
-    ctx.strokeStyle = "rgba(0, 240, 255, 0.4)";
-    ctx.lineWidth = 1.5;
-    ctx.setLineDash([4, 4]);
-    ctx.beginPath();
-    ctx.arc(player.x, player.y, 90 + (player.laser * 15), 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.restore();
-
-    // Linhas subtis de laser para os inimigos dentro do raio de ação
-    for(const e of enemies){
-      if(dist(player, e) < 90 + (player.laser * 15)){
-        ctx.save();
-        ctx.strokeStyle = "#00f0ff"; ctx.lineWidth = Math.min(3, player.laser);
-        ctx.shadowColor = "#00f0ff"; ctx.shadowBlur = 8;
-        ctx.beginPath(); ctx.moveTo(player.x, player.y); ctx.lineTo(e.x, e.y); ctx.stroke();
-        ctx.restore();
-      }
-    }
-  }
-
   if(player){
     if(player.orbitals){
       for(let i=0;i<player.orbitals;i++){
@@ -1084,6 +1089,7 @@ function render(){
     }
     ctx.save();
     let pColor="#00f0ff";
+    if(player.tempWeapon) pColor="#ffb703"; // Cor dourada se arma temporal ativa
     if(idleClock>=3.5){
       pColor = Math.floor(performance.now()/80)%2===0 ? "#ffb703" : "#ff3864";
     }
@@ -1091,6 +1097,13 @@ function render(){
     ctx.fillStyle=pColor;ctx.shadowColor=pColor;ctx.shadowBlur=15;
     ctx.beginPath();ctx.arc(player.x,player.y,player.radius,0,Math.PI*2);ctx.fill();
     ctx.strokeStyle="#fff";ctx.lineWidth=2;ctx.stroke();
+
+    // Indicação do tempo restante da arma temporária em cima do jogador
+    if(player.tempWeapon){
+      ctx.fillStyle="#ffb703"; ctx.font="9px sans-serif"; ctx.textAlign="center";
+      ctx.fillText(Math.ceil(player.tempTimer)+"s", player.x, player.y - player.radius - 8);
+    }
+
     ctx.restore();
   }
 
