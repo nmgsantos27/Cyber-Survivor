@@ -42,8 +42,10 @@ canvas#cv{display:block;width:100%;height:100%;touch-action:none}
 #infoAlert{position:absolute;top:12px;left:50%;transform:translateX(-50%) translateY(-40px);background:rgba(5,10,25,.96);border:1px solid #00f0ff;color:#00f0ff;padding:6px 16px;border-radius:20px;font-size:11px;font-weight:900;pointer-events:none;opacity:0;transition:all .22s cubic-bezier(0.175, 0.885, 0.32, 1.275);z-index:20;box-shadow:0 0 15px rgba(0,240,255,.3);text-align:center;white-space:nowrap;max-width:92%;overflow:hidden;text-overflow:ellipsis}
 #infoAlert.show{opacity:1;transform:translateX(-50%) translateY(0)}
 .small-note{font-size:10px;color:#63809d;line-height:1.5;margin-top:12px}
-.menu-stats{display:flex;justify-content:center;gap:18px;margin:8px 0 12px;color:#9bb7d0;font-size:11px;flex-wrap:wrap}
-.menu-stats b{color:#ffb703}
+.menu-stats{display:flex;justify-content:center;gap:12px 18px;margin:10px 0 14px;color:#9bb7d0;font-size:11px;flex-wrap:wrap;background:#0a1526;padding:12px;border-radius:10px;border:1px solid rgba(0,240,255,.15);text-align:left}
+.menu-stats .stat-box{display:flex;flex-direction:column;min-width:42%}
+.menu-stats .stat-box span{font-size:9px;color:#63809d;text-transform:uppercase;font-weight:800}
+.menu-stats .stat-box b{color:#00f0ff;font-size:13px;font-weight:900}
 .shop-item{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:9px 11px;background:#0a1526;border:1px solid rgba(0,240,255,.15);border-radius:9px;margin-top:7px;text-align:left}
 .shop-item .si-info{flex:1;min-width:0}
 .shop-item .si-name{font-size:12px;font-weight:900;color:#00f0ff}
@@ -86,7 +88,7 @@ canvas#cv{display:block;width:100%;height:100%;touch-action:none}
 "use strict";
 
 /* ============================================================
-   GRID RUNNER: CYBER SURVIVOR — V57 (Ritmo Rápido e Desafiante)
+   GRID RUNNER: CYBER SURVIVOR — V58 (Estatísticas Globais)
    ============================================================ */
 
 (function makeIcon(){
@@ -102,9 +104,10 @@ canvas#cv{display:block;width:100%;height:100%;touch-action:none}
   }catch(e){}
 })();
 
-const SAVE_KEY="gridRunnerBestScoreV57";
-const META_KEY="gridRunnerMetaV57";
-const PROGRESS_KEY="gridRunnerProgressV57";
+const SAVE_KEY="gridRunnerBestScoreV58";
+const META_KEY="gridRunnerMetaV58";
+const PROGRESS_KEY="gridRunnerProgressV58";
+const STATS_KEY="gridRunnerStatsV58";
 
 const $=id=>document.getElementById(id);
 const cv=$("cv"),ctx=cv.getContext("2d",{alpha:false});
@@ -112,6 +115,17 @@ const scoreLbl=$("scoreLbl"),bestLbl=$("bestLbl"),levelLbl=$("levelLbl"),energyL
 const xpBar=$("xpBar"),bossBar=$("bossBar"),bossBarContainer=$("bossBarContainer");
 const overlay=$("screenOverlay"),overlayTitle=$("overlayTitle"),menuSubtitle=$("menuSubtitle"),
       overlayActions=$("overlayActions"),overlayStats=$("overlayStats"),menuNote=$("menuNote"),infoAlert=$("infoAlert");
+
+/* ── STATS GLOBAIS DE CONTA ── */
+function loadStats(){
+  try{
+    const s=JSON.parse(localStorage.getItem(STATS_KEY)||"null");
+    if(s) return s;
+  }catch(e){}
+  return { kills:0, playTime:0, maxLevel:1, gamesPlayed:0, bossesKilled:0 };
+}
+function saveStats(s){ try{localStorage.setItem(STATS_KEY, JSON.stringify(s))}catch(e){} }
+let totalStats=loadStats();
 
 /* ── META PERKS ── */
 const META_PERKS={
@@ -132,7 +146,7 @@ let meta=loadMeta();
 /* ── STATE ── */
 let bestScore=0;try{bestScore=Number(localStorage.getItem(SAVE_KEY))||0}catch(e){}
 let running=false,paused=false,gameOver=false;
-let score=0,level=1,xp=0,maxXp=35,energy=100; // XP inicial mais baixo para progressão rápida
+let score=0,level=1,xp=0,maxXp=35,energy=100;
 let player,enemies=[],bullets=[],gems=[],energyCells=[],particles=[],mines=[],weaponPickups=[],boss=null,pendingUpgrade=null;
 let spawnClock=0,cellClock=0,idleClock=0,alertClock=0,saveClock=0,mineDropClock=0,weaponPickupClock=0;
 let lastFrame=0,raf=0;
@@ -144,6 +158,10 @@ let lastEarnedCoins=0;
 let screenShake=0;
 let hasSavedProgress=false;
 let recordBrokenThisRun=false;
+
+// Stats da partida atual
+let runKills=0;
+let runBossesKilled=0;
 
 let cardsLockUntil=0;
 
@@ -179,6 +197,14 @@ function getMaxEnemies(){
   return MAX_ENEMIES_PER_WAVE[idx];
 }
 
+function formatTime(seconds){
+  const hrs = Math.floor(seconds / 3600);
+  const mins = Math.floor((seconds % 3600) / 60);
+  const secs = Math.floor(seconds % 60);
+  if(hrs > 0) return `${hrs}h ${mins}m`;
+  return `${mins}m ${secs}s`;
+}
+
 /* ── PROGRESS SAVE / LOAD ── */
 function saveProgress(){
   if(!running || gameOver || !player) return;
@@ -187,7 +213,7 @@ function saveProgress(){
       score,level,xp,maxXp,energy,wave,waveClock,
       player:{...player},
       enemies,gems,energyCells,mines,weaponPickups,boss,
-      runStartTime, recordBrokenThisRun
+      runStartTime, recordBrokenThisRun, runKills, runBossesKilled
     };
     localStorage.setItem(PROGRESS_KEY, JSON.stringify(data));
     hasSavedProgress=true;
@@ -208,6 +234,7 @@ function restoreProgress(){
     score=p.score||0; level=p.level||1; xp=p.xp||0; maxXp=p.maxXp||35; energy=p.energy||100;
     wave=p.wave||0; waveClock=p.waveClock||0; runStartTime=p.runStartTime||performance.now();
     recordBrokenThisRun=p.recordBrokenThisRun||false;
+    runKills=p.runKills||0; runBossesKilled=p.runBossesKilled||0;
     player={...newPlayer(cv.clientWidth,cv.clientHeight), ...p.player};
     enemies=p.enemies||[]; gems=p.gems||[]; energyCells=p.energyCells||[]; mines=p.mines||[]; weaponPickups=p.weaponPickups||[]; boss=p.boss||null;
     if(boss) bossBarContainer.style.display="block";
@@ -390,7 +417,7 @@ function showUpgradeCards(){
     picked=true;
     opt.apply();
     level++;
-    maxXp=Math.floor(maxXp*1.25+15); // Crescimento de XP mais ágil
+    maxXp=Math.floor(maxXp*1.25+15);
     overlay.classList.add("hidden");
     upgradeQueue--;
     levelLbl.style.transform="scale(1.35)";
@@ -413,7 +440,7 @@ function showShop(){
   overlayTitle.textContent="🏪 LOJA";
   menuSubtitle.textContent="Gasta moedas em melhorias permanentes.";
   overlayStats.hidden=false;
-  overlayStats.innerHTML=`<span>Moedas: <b>${meta.coins}</b></span>`;
+  overlayStats.innerHTML=`<div class="stat-box"><span>Moedas Disponíveis</span><b>${meta.coins} 🪙</b></div>`;
   overlayActions.innerHTML="";
   menuNote.textContent="As melhorias aplicam-se em todas as runs futuras.";
 
@@ -449,6 +476,30 @@ function showShop(){
   overlayActions.appendChild(back);
 }
 
+/* ── PAINEL DE ESTATÍSTICAS GLOBAIS ── */
+function showStatsMenu(){
+  running=false;paused=false;
+  overlay.classList.remove("hidden");
+  overlayTitle.textContent="📊 ESTATÍSTICAS";
+  menuSubtitle.textContent="Histórico global e registo de combate.";
+  overlayStats.hidden=false;
+  overlayStats.innerHTML=`
+    <div class="stat-box"><span>Recorde Máximo</span><b>${bestScore.toLocaleString("pt-PT")} pts</b></div>
+    <div class="stat-box"><span>Nível Máximo</span><b>Nv. ${totalStats.maxLevel}</b></div>
+    <div class="stat-box"><span>Inimigos Mortos</span><b>${totalStats.kills.toLocaleString("pt-PT")}</b></div>
+    <div class="stat-box"><span>Bosses Derrotados</span><b>${totalStats.bossesKilled.toLocaleString("pt-PT")}</b></div>
+    <div class="stat-box"><span>Tempo de Jogo</span><b>${formatTime(totalStats.playTime)}</b></div>
+    <div class="stat-box"><span>Partidas Jogadas</span><b>${totalStats.gamesPlayed} runs</b></div>
+  `;
+  overlayActions.innerHTML="";
+  
+  const back=document.createElement("button");
+  back.className="btn secondary";back.textContent="VOLTAR AO MENU";
+  back.style.marginTop="16px";
+  back.onclick=()=>showMenu("start");
+  overlayActions.appendChild(back);
+}
+
 /* ── MENU ── */
 function showMenu(mode="start"){
   running=false;paused=false;
@@ -470,14 +521,16 @@ function showMenu(mode="start"){
     overlayTitle.textContent="FALHA DE SISTEMA";
     menuSubtitle.textContent="A tua energia chegou a zero.";
     overlayStats.hidden=false;
-    overlayStats.innerHTML=`<span>Pontos: <b>${Math.floor(score)}</b></span>
-                           <span>Nível: <b>${level}</b></span>
-                           <span>Onda: <b>${wave+1}</b></span>
-                           <span>Tempo: <b>${mm}m ${ss}s</b></span>
-                           <span>Recorde: <b>${bestScore}</b></span>`;
+    overlayStats.innerHTML=`
+      <div class="stat-box"><span>Pontuação</span><b>${Math.floor(score).toLocaleString("pt-PT")}</b></div>
+      <div class="stat-box"><span>Nível Alcançado</span><b>Nv. ${level}</b></div>
+      <div class="stat-box"><span>Inimigos Mortos</span><b>${runKills}</b></div>
+      <div class="stat-box"><span>Tempo de Run</span><b>${mm}m ${ss}s</b></div>
+    `;
     addButton("TENTAR DE NOVO",()=>startGame(false),"");
+    addButton("ESTATÍSTICAS 📊",()=>showStatsMenu(),"secondary");
     addButton("LOJA 🏪",()=>showShop(),"secondary");
-    addButton("MENU",()=>showMenu("start"),"secondary");
+    addButton("MENU PRINCIPAL",()=>showMenu("start"),"secondary");
     menuNote.textContent=`Ganhaste ${lastEarnedCoins} 🪙 nesta run. Total: ${meta.coins} 🪙`;
   }else{
     overlayTitle.textContent="GRID RUNNER";
@@ -495,6 +548,7 @@ function showMenu(mode="start"){
       addButton("INICIALIZAR SISTEMA",()=>startGame(false),"");
     }
     addButton("LOJA 🏪 ("+meta.coins+" 🪙)",()=>showShop(),"secondary");
+    addButton("ESTATÍSTICAS 📊",()=>showStatsMenu(),"secondary");
     menuNote.textContent="Progresso guardado automaticamente. Disparo automático.";
   }
   updateHUD();
@@ -526,6 +580,7 @@ function startGame(resume=false){
   energy=player.maxEnergy;
   revivesLeft=meta.perms.revive||0;
   recordBrokenThisRun=false;
+  runKills=0; runBossesKilled=0;
   enemies=[];bullets=[];gems=[];energyCells=[];particles=[];mines=[];weaponPickups=[];
   boss=null;pendingUpgrade=null;
   spawnClock=0;cellClock=0;idleClock=0;mineDropClock=0;weaponPickupClock=0;
@@ -536,6 +591,11 @@ function startGame(resume=false){
   overlay.classList.add("hidden");
   updateHUD();
   runStartTime=performance.now();
+
+  // Registar nova partida nas estatísticas globais
+  totalStats.gamesPlayed++;
+  saveStats(totalStats);
+
   saveProgress();
   lastFrame=0;
   cancelAnimationFrame(raf);
@@ -563,6 +623,15 @@ function endGame(){
   }
   energy=0;running=false;paused=false;gameOver=true;
   saveBest();
+
+  // Gravar Estatísticas Globais
+  const elapsedSeconds=(performance.now()-runStartTime)/1000;
+  totalStats.kills += runKills;
+  totalStats.bossesKilled += runBossesKilled;
+  totalStats.playTime += elapsedSeconds;
+  if(level > totalStats.maxLevel) totalStats.maxLevel = level;
+  saveStats(totalStats);
+
   clearProgress();
   const gainRate=1+(meta.perms.coinGain||0)*0.15;
   lastEarnedCoins=Math.max(1,Math.floor(score/40*gainRate));
@@ -597,7 +666,7 @@ function spawnEnemy(){
   const base=TYPES[type];
   const extra=Math.max(0,level-1);
   const waveMult=WAVES[wave]?WAVES[wave].mult:1.0;
-  const diff=(1+extra*0.045)*waveMult; // Progressão de dificuldade mais acelerada
+  const diff=(1+extra*0.045)*waveMult;
 
   enemies.push({
     x,y,type,
@@ -782,7 +851,7 @@ function update(dt){
   player.y=clamp(player.y+vy*player.speed*step,player.radius,h-player.radius);
 
   weaponPickupClock += step;
-  if(weaponPickupClock >= 1800 && weaponPickups.length < 1){ // Aparecem mais frequentemente
+  if(weaponPickupClock >= 1800 && weaponPickups.length < 1){
     weaponPickupClock = 0;
     const types=["laser","homing","scatter"];
     const chosenType=types[Math.floor(Math.random()*types.length)];
@@ -794,7 +863,7 @@ function update(dt){
 
   if(!boss && !pendingUpgrade && enemies.length < getMaxEnemies()){
     spawnClock+=step;
-    const spawnRate=Math.max(18, 50 - wave*3.0 - level*0.6); // Spawns mais rápidos
+    const spawnRate=Math.max(18, 50 - wave*3.0 - level*0.6);
     if(spawnClock>=spawnRate){spawnClock=0;spawnEnemy()}
   }
 
@@ -906,6 +975,7 @@ function update(dt){
       b.life=0;
       if(boss.hp<=0){
         score+=400+level*20+wave*60;
+        runBossesKilled++;
         screenShake=15;
         burst(boss.x,boss.y,"#ff0055",50,8);
         boss=null;
@@ -928,6 +998,7 @@ function update(dt){
           if(isCrit){burst(e.x,e.y,"#ffb703",8,4)}
           if(e.hp<=0){
             score+=e.score;
+            runKills++;
             gems.push({x:e.x,y:e.y,value:e.xpValue});
             burst(e.x,e.y,e.color,10,4);
             saveBest();
