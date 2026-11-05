@@ -86,7 +86,7 @@ canvas#cv{display:block;width:100%;height:100%;touch-action:none}
 "use strict";
 
 /* ============================================================
-   GRID RUNNER: CYBER SURVIVOR — V54 (Armas Temporárias / Power-ups)
+   GRID RUNNER: CYBER SURVIVOR — V55 (Cores Distintas para Armas e Energia)
    ============================================================ */
 
 (function makeIcon(){
@@ -102,9 +102,9 @@ canvas#cv{display:block;width:100%;height:100%;touch-action:none}
   }catch(e){}
 })();
 
-const SAVE_KEY="gridRunnerBestScoreV54";
-const META_KEY="gridRunnerMetaV54";
-const PROGRESS_KEY="gridRunnerProgressV54";
+const SAVE_KEY="gridRunnerBestScoreV55";
+const META_KEY="gridRunnerMetaV55";
+const PROGRESS_KEY="gridRunnerProgressV55";
 
 const $=id=>document.getElementById(id);
 const cv=$("cv"),ctx=cv.getContext("2d",{alpha:false});
@@ -242,7 +242,7 @@ function updateHUD(){
   const xpPct = clamp((xp / maxXp) * 100, 0, 100);
   xpBar.style.width = xpPct + "%";
 
-  if(boss)bossBar.style.width=clamp(boss.hp/boss.maxHp*100,0,100)+"%N";
+  if(boss)bossBar.style.width=clamp(boss.hp/boss.maxHp*100,0,100)+"%";
 }
 
 function saveBest(){
@@ -658,20 +658,17 @@ function shoot(){
   else for(const e of enemies){const d=dist(player,e);if(d<min){min=d;target=e}}
   if(!target && player.tempWeapon !== "homing")return;
 
-  // Se tiver Arma Temporária Ativa
   if(player.tempWeapon === "laser" && target){
-    // Feixe laser focado direto ao alvo
     const angle=Math.atan2(target.y-player.y,target.x-player.x);
     bullets.push({
       x:player.x,y:player.y,
       vx:Math.cos(angle)*14,vy:Math.sin(angle)*14,
-      damage:player.damage+3,life:25,color:"#00f0ff",pierceLeft:2,laserBeam:true
+      damage:player.damage+3,life:25,color:"#ffb703",pierceLeft:2,laserBeam:true
     });
     return;
   }
 
   if(player.tempWeapon === "homing"){
-    // Disparo de Mísseis Teleguiados Temporários
     for(let m=0; m<3; m++){
       let ta = enemies.length ? enemies[Math.floor(Math.random()*enemies.length)] : boss;
       if(!ta) break;
@@ -680,7 +677,7 @@ function shoot(){
         x:player.x, y:player.y,
         vx:Math.cos(ma)*6, vy:Math.sin(ma)*6,
         damage:player.damage*1.8, life:90,
-        color:"#00e5f5", pierceLeft:0,
+        color:"#ffb703", pierceLeft:0,
         homing:true
       });
     }
@@ -688,7 +685,6 @@ function shoot(){
   }
 
   if(player.tempWeapon === "scatter"){
-    // Disparo em leque triplo
     if(!target) return;
     const baseAngle=Math.atan2(target.y-player.y,target.x-player.x);
     for(let k=-1; k<=1; k++){
@@ -703,7 +699,6 @@ function shoot(){
     return;
   }
 
-  // Arma Normal de Plasma
   const angle=Math.atan2(target.y-player.y,target.x-player.x);
   const count=Math.min(5,player.bulletCount);
   for(let i=0;i<count;i++){
@@ -727,7 +722,6 @@ function update(dt){
   saveClock+=step;
   if(saveClock>=300){saveClock=0; saveProgress();}
 
-  // Gestão do Temporizador da Arma Temporária
   if(player.tempWeapon){
     player.tempTimer -= dt;
     if(player.tempTimer <= 0){
@@ -780,7 +774,7 @@ function update(dt){
   player.x=clamp(player.x+vx*player.speed*step,player.radius,w-player.radius);
   player.y=clamp(player.y+vy*player.speed*step,player.radius,h-player.radius);
 
-  // Spawnar Módulos de Armas Temporárias na Arena (a cada ~35 segundos)
+  // Módulos de Armas Especiais Dourados (a cada ~35s)
   weaponPickupClock += step;
   if(weaponPickupClock >= 2100 && weaponPickups.length < 1){
     weaponPickupClock = 0;
@@ -788,7 +782,7 @@ function update(dt){
     const chosenType=types[Math.floor(Math.random()*types.length)];
     weaponPickups.push({
       x: rand(40, w-40), y: rand(40, h-40),
-      radius: 14, type: chosenType, life: 900
+      radius: 15, type: chosenType, life: 900
     });
   }
 
@@ -831,15 +825,15 @@ function update(dt){
   }
   bullets=bullets.filter(b=>b.life>0&&b.x>-40&&b.x<w+40&&b.y>-40&&b.y<h+40);
 
-  // Recolher Módulos de Armas Temporárias
+  // Recolher Módulos de Armas Dourados
   for(const wp of weaponPickups){
     wp.life -= step;
     if(dist(player, wp) < player.radius + wp.radius){
       wp.collected = true;
       player.tempWeapon = wp.type;
-      player.tempTimer = 15; // 15 segundos de duração
+      player.tempTimer = 15;
       const names = {laser:"⚡ FEIXE LÁSER", homing:"💥 MÍSSEIS TELEGUIDADOS", scatter:"🔥 DISPARO TRIPLO"};
-      showAlert("🔥 ARMA ATIVADA: " + names[wp.type] + " (15s)");
+      showAlert("🔥 ARMA ESPECIAL: " + names[wp.type] + " (15s)");
       vibrate([100,50,100]);
     }
   }
@@ -1019,12 +1013,13 @@ function render(){
     ctx.restore();
   }
 
-  // Renderizar Módulos de Armas Temporárias no Chão
+  // Renderizar Módulos de Armas Dourados/Amarelos Distintos da Energia
   for(const wp of weaponPickups){
     ctx.save();
-    ctx.fillStyle="#00f0ff"; ctx.shadowColor="#00f0ff"; ctx.shadowBlur=16;
+    ctx.fillStyle="#ffb703"; ctx.shadowColor="#ffb703"; ctx.shadowBlur=18;
     ctx.beginPath(); ctx.arc(wp.x, wp.y, wp.radius, 0, Math.PI*2); ctx.fill();
-    ctx.strokeStyle="#fff"; ctx.lineWidth = 2; ctx.stroke();
+    ctx.strokeStyle="#ffffff"; ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.arc(wp.x, wp.y, wp.radius + 4 + Math.sin(performance.now()/150)*2, 0, Math.PI*2); ctx.stroke();
     ctx.restore();
   }
 
@@ -1089,7 +1084,7 @@ function render(){
     }
     ctx.save();
     let pColor="#00f0ff";
-    if(player.tempWeapon) pColor="#ffb703"; // Cor dourada se arma temporal ativa
+    if(player.tempWeapon) pColor="#ffb703";
     if(idleClock>=3.5){
       pColor = Math.floor(performance.now()/80)%2===0 ? "#ffb703" : "#ff3864";
     }
@@ -1098,7 +1093,6 @@ function render(){
     ctx.beginPath();ctx.arc(player.x,player.y,player.radius,0,Math.PI*2);ctx.fill();
     ctx.strokeStyle="#fff";ctx.lineWidth=2;ctx.stroke();
 
-    // Indicação do tempo restante da arma temporária em cima do jogador
     if(player.tempWeapon){
       ctx.fillStyle="#ffb703"; ctx.font="9px sans-serif"; ctx.textAlign="center";
       ctx.fillText(Math.ceil(player.tempTimer)+"s", player.x, player.y - player.radius - 8);
