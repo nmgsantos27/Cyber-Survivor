@@ -86,7 +86,7 @@ canvas#cv{display:block;width:100%;height:100%;touch-action:none}
 "use strict";
 
 /* ============================================================
-   GRID RUNNER: CYBER SURVIVOR — V49 (Com Autosave Completo)
+   GRID RUNNER: CYBER SURVIVOR — V50 (Correção da Barra de XP)
    ============================================================ */
 
 (function makeIcon(){
@@ -102,9 +102,9 @@ canvas#cv{display:block;width:100%;height:100%;touch-action:none}
   }catch(e){}
 })();
 
-const SAVE_KEY="gridRunnerBestScoreV49";
-const META_KEY="gridRunnerMetaV49";
-const PROGRESS_KEY="gridRunnerProgressV49";
+const SAVE_KEY="gridRunnerBestScoreV50";
+const META_KEY="gridRunnerMetaV50";
+const PROGRESS_KEY="gridRunnerProgressV50";
 
 const $=id=>document.getElementById(id);
 const cv=$("cv"),ctx=cv.getContext("2d",{alpha:false});
@@ -238,7 +238,11 @@ function updateHUD(){
   energyLbl.textContent=Math.max(0,Math.ceil(energy))+"%";
   const estimated=Math.max(0,Math.floor(score/50));
   coinsLbl.textContent=(meta.coins+(running?estimated:0)).toLocaleString("pt-PT");
-  xpBar.style.width=clamp(xp/maxXp*100,0,100)+"%N";
+  
+  // Correção da largura da barra de XP (removido o caractere 'N' indevido)
+  const xpPct = clamp((xp / maxXp) * 100, 0, 100);
+  xpBar.style.width = xpPct + "%";
+
   if(boss)bossBar.style.width=clamp(boss.hp/boss.maxHp*100,0,100)+"%";
 }
 function saveBest(){
@@ -467,7 +471,6 @@ function showMenu(mode="start"){
     overlayTitle.textContent="GRID RUNNER";
     menuSubtitle.textContent="CYBER SURVIVOR · Sobrevive o máximo que puderes.";
     
-    // Verificar se existe progresso guardado
     try{
       const raw=localStorage.getItem(PROGRESS_KEY);
       hasSavedProgress=!!raw;
@@ -668,7 +671,7 @@ function update(dt){
   const w=cv.clientWidth,h=cv.clientHeight,step=dt*60;
 
   saveClock+=step;
-  if(saveClock>=300){saveClock=0; saveProgress();} // Autosave a cada ~5 segundos de jogo real
+  if(saveClock>=300){saveClock=0; saveProgress();}
 
   if(screenShake>0) screenShake=Math.max(0, screenShake - step*0.8);
   if(player.invulnerable>0)player.invulnerable=Math.max(0,player.invulnerable-dt);
