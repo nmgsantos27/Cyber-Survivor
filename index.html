@@ -86,7 +86,7 @@ canvas#cv{display:block;width:100%;height:100%;touch-action:none}
 "use strict";
 
 /* ============================================================
-   GRID RUNNER: CYBER SURVIVOR — V51 (Progressão Suave de Inimigos)
+   GRID RUNNER: CYBER SURVIVOR — V52 (Novas Armas e Tipos de Ataque)
    ============================================================ */
 
 (function makeIcon(){
@@ -102,9 +102,9 @@ canvas#cv{display:block;width:100%;height:100%;touch-action:none}
   }catch(e){}
 })();
 
-const SAVE_KEY="gridRunnerBestScoreV51";
-const META_KEY="gridRunnerMetaV51";
-const PROGRESS_KEY="gridRunnerProgressV51";
+const SAVE_KEY="gridRunnerBestScoreV52";
+const META_KEY="gridRunnerMetaV52";
+const PROGRESS_KEY="gridRunnerProgressV52";
 
 const $=id=>document.getElementById(id);
 const cv=$("cv"),ctx=cv.getContext("2d",{alpha:false});
@@ -133,8 +133,8 @@ let meta=loadMeta();
 let bestScore=0;try{bestScore=Number(localStorage.getItem(SAVE_KEY))||0}catch(e){}
 let running=false,paused=false,gameOver=false;
 let score=0,level=1,xp=0,maxXp=45,energy=100;
-let player,enemies=[],bullets=[],gems=[],energyCells=[],particles=[],boss=null,pendingUpgrade=null;
-let spawnClock=0,cellClock=0,idleClock=0,alertClock=0,saveClock=0;
+let player,enemies=[],bullets=[],gems=[],energyCells=[],particles=[],mines=[],boss=null,pendingUpgrade=null;
+let spawnClock=0,cellClock=0,idleClock=0,alertClock=0,saveClock=0,mineDropClock=0;
 let lastFrame=0,raf=0;
 let wave=0,waveClock=0;
 let upgradeQueue=0;
@@ -185,7 +185,7 @@ function saveProgress(){
     const data={
       score,level,xp,maxXp,energy,wave,waveClock,
       player:{...player},
-      enemies,gems,energyCells,boss,
+      enemies,gems,energyCells,mines,boss,
       runStartTime
     };
     localStorage.setItem(PROGRESS_KEY, JSON.stringify(data));
@@ -207,7 +207,7 @@ function restoreProgress(){
     score=p.score||0; level=p.level||1; xp=p.xp||0; maxXp=p.maxXp||45; energy=p.energy||100;
     wave=p.wave||0; waveClock=p.waveClock||0; runStartTime=p.runStartTime||performance.now();
     player={...newPlayer(cv.clientWidth,cv.clientHeight), ...p.player};
-    enemies=p.enemies||[]; gems=p.gems||[]; energyCells=p.energyCells||[]; boss=p.boss||null;
+    enemies=p.enemies||[]; gems=p.gems||[]; energyCells=p.energyCells||[]; mines=p.mines||[]; boss=p.boss||null;
     if(boss) bossBarContainer.style.display="block";
     return true;
   }catch(e){ return false; }
@@ -262,7 +262,10 @@ function newPlayer(w,h){
     pickupRadius:90+(p.magnet||0)*25,
     weaponType:"plasma",invulnerable:0,
     maxEnergy:maxE,
-    regen:0,orbitals:0,nova:0,critChance:0,pierce:0
+    regen:0,orbitals:0,nova:0,critChance:0,pierce:0,
+    laser:0,      // Nova arma: Raio Laser
+    homing:0,     // Nova arma: Mísseis Teleguiados
+    mines:0       // Nova arma: Minas Cibernéticas
   };
 }
 
@@ -290,7 +293,7 @@ function renderParticles(){
   }
 }
 
-/* ── CARDS ── */
+/* ── CARDS (COM NOVAS ARMAS) ── */
 function showUpgradeCards(){
   if(!overlay.classList.contains("hidden")) return;
   paused=true;
@@ -309,6 +312,9 @@ function showUpgradeCards(){
     {id:"crit",   rarity:"raro",  name:"🎲 Crítico",       desc:"+15% chance de 2x dano",      apply:()=>player.critChance=(player.critChance||0)+.15},
     {id:"pierce", rarity:"raro",  name:"🗡 Perfurante",    desc:"Balas atravessam 1 inimigo",  apply:()=>player.pierce=(player.pierce||0)+1},
     {id:"regen",  rarity:"raro",  name:"💚 Regeneração",   desc:"+1.2% energia/seg",           apply:()=>player.regen=(player.regen||0)+1.2},
+    {id:"laser",  rarity:"raro",  name:"⚡ Raio Laser",    desc:"Emite feixe contínuo de dano",apply:()=>player.laser=(player.laser||0)+1},
+    {id:"homing", rarity:"raro",  name:"💥 Mísseis Guia",  desc:"Dispara mísseis teleguiados", apply:()=>player.homing=(player.homing||0)+1},
+    {id:"mines",  rarity:"épico", name:"💣 Minas Cibern.", desc:"Deixa minas explosivas no chão",apply:()=>player.mines=(player.mines||0)+1},
     {id:"orbit",  rarity:"épico", name:"🪐 Satélite",      desc:"Orbe que dispara sozinho",    apply:()=>player.orbitals=(player.orbitals||0)+1},
     {id:"nova",   rarity:"épico", name:"💥 Nova",          desc:"Explosão defensiva ao levar dano", apply:()=>player.nova=(player.nova||0)+1}
   ];
@@ -318,7 +324,7 @@ function showUpgradeCards(){
   let safety=0;
   while(picks.length<3 && safety++<100){
     const roll=Math.random()*100;
-    const rarity=roll<60?"comum":roll<90?"raro":"épico";
+    const rarity=roll<55?"comum":roll<85?"raro":"épico";
     const cand=pool.map((c,i)=>({c,i})).filter(o=>o.c.rarity===rarity&&!usedIdx.has(o.i));
     if(cand.length){
       const pick=cand[Math.floor(Math.random()*cand.length)];
@@ -332,7 +338,7 @@ function showUpgradeCards(){
 
   overlay.classList.remove("hidden");
   overlayTitle.textContent="⬆ NÍVEL "+(level+1);
-  menuSubtitle.textContent="Escolhe uma melhoria táctica";
+  menuSubtitle.textContent="Escolhe uma nova arma ou melhoria";
   overlayStats.hidden=true;
   overlayActions.innerHTML="";
 
@@ -389,7 +395,7 @@ function showUpgradeCards(){
     raf=requestAnimationFrame(loop);
     updateHUD();
   }
-  menuNote.textContent="Cada escolha altera a tua build de sobrevivência.";
+  menuNote.textContent="Expande o teu arsenal táctico.";
   updateHUD();
 }
 
@@ -512,9 +518,9 @@ function startGame(resume=false){
   player=newPlayer(cv.clientWidth,cv.clientHeight);
   energy=player.maxEnergy;
   revivesLeft=meta.perms.revive||0;
-  enemies=[];bullets=[];gems=[];energyCells=[];particles=[];
+  enemies=[];bullets=[];gems=[];energyCells=[];particles=[];mines=[];
   boss=null;pendingUpgrade=null;
-  spawnClock=0;cellClock=0;idleClock=0;
+  spawnClock=0;cellClock=0;idleClock=0;mineDropClock=0;
   wave=0;waveClock=0;upgradeQueue=0;
   gameOver=false;paused=false;running=true;
   screenShake=0;
@@ -644,7 +650,7 @@ function damagePlayer(amount){
   if(energy<=0)endGame();
 }
 
-/* ── SHOOT ── */
+/* ── SHOOT (COM MÍSSEIS TELEGUIDADOS) ── */
 function shoot(){
   let target=null,min=player.range;
   if(boss)target=boss;
@@ -659,8 +665,24 @@ function shoot(){
       vx:Math.cos(a)*9,vy:Math.sin(a)*9,
       damage:player.damage,life:Math.ceil(player.range/9)+12,
       color:player.bulletCount>1?"#ffb703":"#00f0ff",
-      pierceLeft:player.pierce||0
+      pierceLeft:player.pierce||0,
+      homing:false
     });
+  }
+
+  // Disparo de Mísseis Teleguiados
+  if(player.homing > 0 && enemies.length > 0){
+    for(let m=0; m<player.homing; m++){
+      const ta=enemies[Math.floor(Math.random()*enemies.length)];
+      const ma=Math.atan2(ta.y-player.y, ta.x-player.x);
+      bullets.push({
+        x:player.x, y:player.y,
+        vx:Math.cos(ma)*6, vy:Math.sin(ma)*6,
+        damage:player.damage*1.5, life:100,
+        color:"#00e5f5", pierceLeft:0,
+        homing:true
+      });
+    }
   }
 }
 
@@ -715,9 +737,17 @@ function update(dt){
   player.x=clamp(player.x+vx*player.speed*step,player.radius,w-player.radius);
   player.y=clamp(player.y+vy*player.speed*step,player.radius,h-player.radius);
 
+  // Deixar Minas Cibernéticas no chão se ativo
+  if(player.mines > 0){
+    mineDropClock += step;
+    if(mineDropClock >= 120){
+      mineDropClock = 0;
+      mines.push({x: player.x, y: player.y, radius: 12, damage: 4 + player.mines*2, life: 600});
+    }
+  }
+
   if(!boss && !pendingUpgrade && enemies.length < getMaxEnemies()){
     spawnClock+=step;
-    // Cadência de spawn mais progressiva e alargada para dar espaço para fugir
     const spawnRate=Math.max(22, 60 - wave*3.2 - level*0.5);
     if(spawnClock>=spawnRate){spawnClock=0;spawnEnemy()}
   }
@@ -731,6 +761,7 @@ function update(dt){
   player.fireTimer+=step;
   if(player.fireTimer>=player.fireRate){player.fireTimer=0;shoot()}
 
+  // Satélites Orbitais
   if(player.orbitals){
     for(let i=0;i<player.orbitals;i++){
       const ang=performance.now()/700+i*(Math.PI*2/player.orbitals);
@@ -739,13 +770,47 @@ function update(dt){
         const t=enemies[0];
         const a=Math.atan2(t.y-oy,t.x-ox);
         bullets.push({x:ox,y:oy,vx:Math.cos(a)*7,vy:Math.sin(a)*7,
-          damage:1,life:50,color:"#bd83ff",pierceLeft:0});
+          damage:1,life:50,color:"#bd83ff",pierceLeft:0,homing:false});
       }
     }
   }
 
-  for(const b of bullets){b.x+=b.vx*step;b.y+=b.vy*step;b.life-=step}
+  // Raio Laser Contínuo automático no inimigo mais próximo
+  if(player.laser > 0 && enemies.length > 0){
+    let t=enemies[0], minD=dist(player,t);
+    for(const e of enemies){const d=dist(player,e);if(d<minD){minD=d;t=e;}}
+    if(minD < player.range + 50){
+      t.hp -= (0.15 * player.laser * step);
+      burst(t.x, t.y, "#00f0ff", 1, 1);
+      if(t.hp <= 0){ score += t.score; gems.push({x:t.x,y:t.y,value:t.xpValue}); }
+    }
+  }
+
+  // Atualização de Mísseis e Balas
+  for(const b of bullets){
+    if(b.homing && enemies.length > 0){
+      let nt = enemies[0], nd = dist(b, nt);
+      for(const e of enemies){const d=dist(b, e);if(d<nd){nd=d;nt=e;}}
+      const ha = Math.atan2(nt.y - b.y, nt.x - b.x);
+      b.vx = Math.cos(ha)*7; b.vy = Math.sin(ha)*7;
+    }
+    b.x+=b.vx*step; b.y+=b.vy*step; b.life-=step;
+  }
   bullets=bullets.filter(b=>b.life>0&&b.x>-40&&b.x<w+40&&b.y>-40&&b.y<h+40);
+
+  // Verificação de Minas Cibernéticas
+  for(const m of mines){
+    m.life -= step;
+    for(const e of enemies){
+      if(dist(m, e) < m.radius + e.radius){
+        e.hp -= m.damage;
+        burst(m.x, m.y, "#ffb703", 15, 5);
+        m.exploded = true;
+        break;
+      }
+    }
+  }
+  mines = mines.filter(m => !m.exploded && m.life > 0);
 
   if(boss){
     const a=Math.atan2(player.y-boss.y,player.x-boss.x);
@@ -767,7 +832,7 @@ function update(dt){
       for(let k=-1;k<=1;k++){
         const aa=ba+k*.22;
         bullets.push({x:boss.x,y:boss.y,vx:Math.cos(aa)*2.8,vy:Math.sin(aa)*2.8,
-          damage:0,hostile:true,life:110,color:"#ff3864",pierceLeft:0});
+          damage:0,hostile:true,life:110,color:"#ff3864",pierceLeft:0,homing:false});
       }
     }
 
@@ -779,7 +844,7 @@ function update(dt){
         for(let i=0;i<n;i++){
           const aa=i/n*Math.PI*2;
           bullets.push({x:boss.x,y:boss.y,vx:Math.cos(aa)*2.3,vy:Math.sin(aa)*2.3,
-            damage:0,hostile:true,life:140,color:"#ff3864",pierceLeft:0});
+            damage:0,hostile:true,life:140,color:"#ff3864",pierceLeft:0,homing:false});
         }
       }
     }
@@ -916,6 +981,16 @@ function render(){
     ctx.restore();
   }
 
+  // Renderizar Minas Cibernéticas
+  for(const m of mines){
+    ctx.save();
+    ctx.fillStyle="#ffb703"; ctx.shadowColor="#ffb703"; ctx.shadowBlur=10;
+    ctx.beginPath(); ctx.arc(m.x, m.y, 6, 0, Math.PI*2); ctx.fill();
+    ctx.strokeStyle="rgba(255,183,3,0.5)"; ctx.lineWidth=1.5;
+    ctx.beginPath(); ctx.arc(m.x, m.y, m.radius, 0, Math.PI*2); ctx.stroke();
+    ctx.restore();
+  }
+
   for(const c of energyCells){
     ctx.save();
     ctx.fillStyle="#00f0ff";ctx.shadowColor="#00f0ff";ctx.shadowBlur=13;
@@ -962,6 +1037,19 @@ function render(){
     ctx.shadowColor=ctx.fillStyle;ctx.shadowBlur=7;
     ctx.beginPath();ctx.arc(b.x,b.y,b.hostile?4:3,0,Math.PI*2);ctx.fill();
     ctx.restore();
+  }
+
+  // Desenhar Raio Laser se ativo
+  if(player.laser > 0 && enemies.length > 0){
+    let t=enemies[0], minD=dist(player,t);
+    for(const e of enemies){const d=dist(player,e);if(d<minD){minD=d;t=e;}}
+    if(minD < player.range + 50){
+      ctx.save();
+      ctx.strokeStyle = "#00f0ff"; ctx.lineWidth = player.laser * 1.5;
+      ctx.shadowColor = "#00f0ff"; ctx.shadowBlur = 12;
+      ctx.beginPath(); ctx.moveTo(player.x, player.y); ctx.lineTo(t.x, t.y); ctx.stroke();
+      ctx.restore();
+    }
   }
 
   if(player){
