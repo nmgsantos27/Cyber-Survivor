@@ -89,7 +89,7 @@ canvas#cv{display:block;width:100%;height:100%;touch-action:none}
 "use strict";
 
 /* ============================================================
-   GRID RUNNER: CYBER SURVIVOR — V58 (PWA / Ícones / Stats)
+   GRID RUNNER: CYBER SURVIVOR — V59 (Correção de Estatísticas no Menu)
    ============================================================ */
 
 (function initPWA(){
@@ -127,10 +127,10 @@ canvas#cv{display:block;width:100%;height:100%;touch-action:none}
   }catch(e){}
 })();
 
-const SAVE_KEY="gridRunnerBestScoreV58";
-const META_KEY="gridRunnerMetaV58";
-const PROGRESS_KEY="gridRunnerProgressV58";
-const STATS_KEY="gridRunnerStatsV58";
+const SAVE_KEY="gridRunnerBestScoreV59";
+const META_KEY="gridRunnerMetaV59";
+const PROGRESS_KEY="gridRunnerProgressV59";
+const STATS_KEY="gridRunnerStatsV59";
 
 const $=id=>document.getElementById(id);
 const cv=$("cv"),ctx=cv.getContext("2d",{alpha:false});
@@ -501,6 +501,7 @@ function showShop(){
 /* ── PAINEL DE ESTATÍSTICAS GLOBAIS ── */
 function showStatsMenu(){
   running=false;paused=false;
+  totalStats = loadStats(); // Recarrega os dados atualizados
   overlay.classList.remove("hidden");
   overlayTitle.textContent="📊 ESTATÍSTICAS";
   menuSubtitle.textContent="Histórico global e registo de combate.";
@@ -526,6 +527,7 @@ function showStatsMenu(){
 function showMenu(mode="start"){
   running=false;paused=false;
   joystick.active=false;joystick.id=null;joystick.dx=joystick.dy=0;
+  totalStats = loadStats(); // Garante que lê sempre os dados mais recentes ao abrir o menu
   overlay.classList.remove("hidden");
   overlayActions.innerHTML="";overlayStats.hidden=true;
 
