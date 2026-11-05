@@ -86,7 +86,7 @@ canvas#cv{display:block;width:100%;height:100%;touch-action:none}
 "use strict";
 
 /* ============================================================
-   GRID RUNNER: CYBER SURVIVOR — V55 (Cores Distintas para Armas e Energia)
+   GRID RUNNER: CYBER SURVIVOR — V56 (Alerta Único de Recorde)
    ============================================================ */
 
 (function makeIcon(){
@@ -102,9 +102,9 @@ canvas#cv{display:block;width:100%;height:100%;touch-action:none}
   }catch(e){}
 })();
 
-const SAVE_KEY="gridRunnerBestScoreV55";
-const META_KEY="gridRunnerMetaV55";
-const PROGRESS_KEY="gridRunnerProgressV55";
+const SAVE_KEY="gridRunnerBestScoreV56";
+const META_KEY="gridRunnerMetaV56";
+const PROGRESS_KEY="gridRunnerProgressV56";
 
 const $=id=>document.getElementById(id);
 const cv=$("cv"),ctx=cv.getContext("2d",{alpha:false});
@@ -143,6 +143,7 @@ let revivesLeft=0;
 let lastEarnedCoins=0;
 let screenShake=0;
 let hasSavedProgress=false;
+let recordBrokenThisRun=false; // Garante que o aviso só dispara uma vez por run
 
 let cardsLockUntil=0;
 
@@ -186,7 +187,7 @@ function saveProgress(){
       score,level,xp,maxXp,energy,wave,waveClock,
       player:{...player},
       enemies,gems,energyCells,mines,weaponPickups,boss,
-      runStartTime
+      runStartTime, recordBrokenThisRun
     };
     localStorage.setItem(PROGRESS_KEY, JSON.stringify(data));
     hasSavedProgress=true;
@@ -206,6 +207,7 @@ function restoreProgress(){
     if(!p || !p.player || p.energy<=0) return false;
     score=p.score||0; level=p.level||1; xp=p.xp||0; maxXp=p.maxXp||45; energy=p.energy||100;
     wave=p.wave||0; waveClock=p.waveClock||0; runStartTime=p.runStartTime||performance.now();
+    recordBrokenThisRun=p.recordBrokenThisRun||false;
     player={...newPlayer(cv.clientWidth,cv.clientHeight), ...p.player};
     enemies=p.enemies||[]; gems=p.gems||[]; energyCells=p.energyCells||[]; mines=p.mines||[]; weaponPickups=p.weaponPickups||[]; boss=p.boss||null;
     if(boss) bossBarContainer.style.display="block";
@@ -249,7 +251,11 @@ function saveBest(){
   if(score > bestScore){
     bestScore = Math.floor(score);
     try{ localStorage.setItem(SAVE_KEY, String(bestScore)); }catch(e){}
-    showAlert("🏆 NOVO RECORDE: " + bestScore.toLocaleString("pt-PT") + "!");
+    if(!recordBrokenThisRun){
+      recordBrokenThisRun = true;
+      showAlert("🏆 NOVO RECORDE: " + bestScore.toLocaleString("pt-PT") + "!");
+      vibrate([100,50,100]);
+    }
   }
   updateHUD();
 }
@@ -268,8 +274,8 @@ function newPlayer(w,h){
     weaponType:"plasma",invulnerable:0,
     maxEnergy:maxE,
     regen:0,orbitals:0,nova:0,critChance:0,pierce:0,
-    tempWeapon:null,   // Armas temporárias: "laser", "homing", "scatter"
-    tempTimer:0        // Duração restante em segundos
+    tempWeapon:null,
+    tempTimer:0
   };
 }
 
@@ -519,6 +525,7 @@ function startGame(resume=false){
   player=newPlayer(cv.clientWidth,cv.clientHeight);
   energy=player.maxEnergy;
   revivesLeft=meta.perms.revive||0;
+  recordBrokenThisRun=false;
   enemies=[];bullets=[];gems=[];energyCells=[];particles=[];mines=[];weaponPickups=[];
   boss=null;pendingUpgrade=null;
   spawnClock=0;cellClock=0;idleClock=0;mineDropClock=0;weaponPickupClock=0;
@@ -651,7 +658,7 @@ function damagePlayer(amount){
   if(energy<=0)endGame();
 }
 
-/* ── SHOOT (COM ARMAS TEMPORÁRIAS) ── */
+/* ── SHOOT ── */
 function shoot(){
   let target=null,min=player.range;
   if(boss)target=boss;
@@ -774,7 +781,6 @@ function update(dt){
   player.x=clamp(player.x+vx*player.speed*step,player.radius,w-player.radius);
   player.y=clamp(player.y+vy*player.speed*step,player.radius,h-player.radius);
 
-  // Módulos de Armas Especiais Dourados (a cada ~35s)
   weaponPickupClock += step;
   if(weaponPickupClock >= 2100 && weaponPickups.length < 1){
     weaponPickupClock = 0;
@@ -825,7 +831,6 @@ function update(dt){
   }
   bullets=bullets.filter(b=>b.life>0&&b.x>-40&&b.x<w+40&&b.y>-40&&b.y<h+40);
 
-  // Recolher Módulos de Armas Dourados
   for(const wp of weaponPickups){
     wp.life -= step;
     if(dist(player, wp) < player.radius + wp.radius){
@@ -940,6 +945,11 @@ function update(dt){
   if(score > bestScore){
     bestScore = Math.floor(score);
     try{ localStorage.setItem(SAVE_KEY, String(bestScore)); }catch(e){}
+    if(!recordBrokenThisRun){
+      recordBrokenThisRun = true;
+      showAlert("🏆 NOVO RECORDE: " + bestScore.toLocaleString("pt-PT") + "!");
+      vibrate([100,50,100]);
+    }
   }
 
   for(const g of gems){
@@ -1013,7 +1023,6 @@ function render(){
     ctx.restore();
   }
 
-  // Renderizar Módulos de Armas Dourados/Amarelos Distintos da Energia
   for(const wp of weaponPickups){
     ctx.save();
     ctx.fillStyle="#ffb703"; ctx.shadowColor="#ffb703"; ctx.shadowBlur=18;
