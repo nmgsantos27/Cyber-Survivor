@@ -21,7 +21,7 @@ body{display:flex;justify-content:center;align-items:center;position:fixed;inset
 .hstat{display:flex;flex-direction:column;align-items:center;line-height:1.1;min-width:0}
 .hstat .val{font-size:clamp(12px,3.4vw,15px);font-weight:900;text-shadow:0 0 8px currentColor;transition:transform .2s ease;display:inline-block}
 .hstat .lbl{font-size:7px;font-weight:800;color:#6685a4;margin-top:3px;letter-spacing:.6px}
-.score .val{color:#00f0ff}.best .val{color:#ffb703}.level .val{color:#bd83ff}.energy .val{color:#00f0ff}.coins .val{color:#ffd700}
+.score .val{color:#00f0ff}.best .val{color:#ffb703}.level .val{color:#bd83ff}.energy .val{color:#00f0ff}.coins .val{color:#ffd700}.wave .val{color:#00d9ff}
 #pauseBtn{border:1px solid rgba(0,240,255,.4);background:#0a1930;color:#00f0ff;border-radius:8px;padding:7px 9px;font-weight:900;font-size:12px}
 #gamewrap{flex:1;min-height:0;width:100%;position:relative;background:#03050c;overflow:hidden}
 canvas#cv{display:block;width:100%;height:100%;touch-action:none}
@@ -60,6 +60,7 @@ canvas#cv{display:block;width:100%;height:100%;touch-action:none}
   <div id="hud">
     <div class="hstat score"><div class="val" id="scoreLbl">0</div><div class="lbl">PONTOS</div></div>
     <div class="hstat best"><div class="val" id="bestLbl">0</div><div class="lbl">RECORDE</div></div>
+    <div class="hstat wave"><div class="val" id="waveLbl">1</div><div class="lbl">ONDA</div></div>
     <div class="hstat level"><div class="val" id="levelLbl">Nv. 1</div><div class="lbl">NÍVEL</div></div>
     <div class="hstat energy"><div class="val" id="energyLbl">100%</div><div class="lbl">ENERGIA</div></div>
     <div class="hstat coins"><div class="val" id="coinsLbl">0</div><div class="lbl">MOEDAS</div></div>
@@ -83,7 +84,7 @@ canvas#cv{display:block;width:100%;height:100%;touch-action:none}
 "use strict";
 
 /* ============================================================
-   GRID RUNNER: CYBER SURVIVOR — V42 (Níveis e Moedas Corrigidos)
+   GRID RUNNER: CYBER SURVIVOR — V43 (Ondas Maiores e Mais Densas)
    ============================================================ */
 
 (function makeIcon(){
@@ -99,12 +100,12 @@ canvas#cv{display:block;width:100%;height:100%;touch-action:none}
   }catch(e){}
 })();
 
-const SAVE_KEY="gridRunnerBestScoreV42";
-const META_KEY="gridRunnerMetaV42";
+const SAVE_KEY="gridRunnerBestScoreV43";
+const META_KEY="gridRunnerMetaV43";
 
 const $=id=>document.getElementById(id);
 const cv=$("cv"),ctx=cv.getContext("2d",{alpha:false});
-const scoreLbl=$("scoreLbl"),bestLbl=$("bestLbl"),levelLbl=$("levelLbl"),energyLbl=$("energyLbl"),coinsLbl=$("coinsLbl");
+const scoreLbl=$("scoreLbl"),bestLbl=$("bestLbl"),levelLbl=$("levelLbl"),energyLbl=$("energyLbl"),coinsLbl=$("coinsLbl"),waveLbl=$("waveLbl");
 const xpBar=$("xpBar"),bossBar=$("bossBar"),bossBarContainer=$("bossBarContainer");
 const overlay=$("screenOverlay"),overlayTitle=$("overlayTitle"),menuSubtitle=$("menuSubtitle"),
       overlayActions=$("overlayActions"),overlayStats=$("overlayStats"),menuNote=$("menuNote"),infoAlert=$("infoAlert");
@@ -152,15 +153,25 @@ const TYPES={
   tank:   {hp:6,speed:0.72,r:17,color:"#ff9f1c",score:40,xp:22,damage:14}
 };
 
+// ONDAS MAIORES: 60s cada, multiplicador crescente
 const WAVES=[
-  {t:0,   name:"Inicialização"},
-  {t:30,  name:"Enxame"},
-  {t:70,  name:"Glitches"},
-  {t:110, name:"Corredores"},
-  {t:150, name:"Tanques"},
-  {t:190, name:"⚠ BOSS"},
-  {t:240, name:"Caos"}
+  {t:0,   name:"Inicialização", mult:1.0},
+  {t:60,  name:"Enxame",        mult:1.2},
+  {t:120, name:"Glitches",      mult:1.4},
+  {t:180, name:"Corredores",    mult:1.6},
+  {t:240, name:"Tanques",       mult:1.9},
+  {t:300, name:"⚠ BOSS",        mult:2.0},
+  {t:420, name:"Caos",          mult:2.5},
+  {t:540, name:"⚠ BOSS 2",      mult:3.0},
+  {t:660, name:"Colapso",       mult:3.5}
 ];
+
+// Limite de inimigos simultâneos por onda
+const MAX_ENEMIES_PER_WAVE=[8,14,20,28,36,45,55,65,80];
+function getMaxEnemies(){
+  const idx=Math.min(wave,MAX_ENEMIES_PER_WAVE.length-1);
+  return MAX_ENEMIES_PER_WAVE[idx];
+}
 
 /* ── UI ── */
 function showAlert(msg){
@@ -182,9 +193,10 @@ function resizeCanvas(){
 function updateHUD(){
   scoreLbl.textContent=Math.floor(score).toLocaleString("pt-PT");
   bestLbl.textContent=Math.floor(bestScore).toLocaleString("pt-PT");
+  waveLbl.textContent=(wave+1)+"/"+WAVES.length;
   levelLbl.textContent="Nv. "+level;
   energyLbl.textContent=Math.max(0,Math.ceil(energy))+"%";
-  const estimated = Math.max(0, Math.floor(score/50));
+  const estimated=Math.max(0,Math.floor(score/50));
   coinsLbl.textContent=(meta.coins+(running?estimated:0)).toLocaleString("pt-PT");
   xpBar.style.width=clamp(xp/maxXp*100,0,100)+"%";
   if(boss)bossBar.style.width=clamp(boss.hp/boss.maxHp*100,0,100)+"%";
@@ -367,6 +379,7 @@ function showMenu(mode="start"){
     overlayStats.hidden=false;
     overlayStats.innerHTML=`<span>Pontos: <b>${Math.floor(score)}</b></span>
                            <span>Nível: <b>${level}</b></span>
+                           <span>Onda: <b>${wave+1}</b></span>
                            <span>Tempo: <b>${mm}m ${ss}s</b></span>
                            <span>Recorde: <b>${bestScore}</b></span>`;
     addButton("TENTAR DE NOVO",()=>startGame(),"");
@@ -463,22 +476,26 @@ function spawnEnemy(){
   const type=pool[Math.floor(Math.random()*pool.length)];
   const base=TYPES[type];
   const extra=Math.max(0,level-1);
-  const diff=1+extra*0.055;
+  // HP escala com nível E com onda
+  const waveMult=1+wave*0.18;
+  const diff=(1+extra*0.055)*waveMult;
 
   enemies.push({
     x,y,type,
     hp:Math.ceil(base.hp*diff),
     maxHp:Math.ceil(base.hp*diff),
-    speed:base.speed*(1+Math.min(extra,30)*0.015),
+    speed:base.speed*(1+Math.min(extra,30)*0.012),
     radius:base.r,color:base.color,
-    damage:Math.round(base.damage+extra*0.9),
-    score:base.score,xpValue:base.xp
+    damage:Math.round(base.damage+extra*0.8),
+    score:base.score,
+    // XP escala com onda para compensar dificuldade
+    xpValue:Math.ceil(base.xp*(1+wave*0.15))
   });
 }
 
 function spawnBoss(){
   const w=cv.clientWidth,h=cv.clientHeight;
-  const hp=75+level*15;
+  const hp=75+level*15+wave*40;
   boss={x:w/2,y:-40,radius:28,hp,maxHp:hp,speed:1.08+Math.min(level,25)*.022,
         phase:1,attackTimer:90,burstTimer:200};
   bossBarContainer.style.display="block";
@@ -554,10 +571,11 @@ function update(dt){
   if(player.invulnerable>0)player.invulnerable=Math.max(0,player.invulnerable-dt);
   if(player.regen)energy=Math.min(player.maxEnergy,energy+player.regen*dt);
 
+  // Progressão de ondas (60s cada)
   waveClock+=dt;
   if(wave<WAVES.length-1 && waveClock>=WAVES[wave+1].t){
     wave++;
-    showAlert("🌊 ONDA: "+WAVES[wave].name);
+    showAlert("🌊 ONDA "+(wave+1)+": "+WAVES[wave].name);
     vibrate([80,40,80]);
   }
 
@@ -588,10 +606,13 @@ function update(dt){
   player.x=clamp(player.x+vx*player.speed*step,player.radius,w-player.radius);
   player.y=clamp(player.y+vy*player.speed*step,player.radius,h-player.radius);
 
-  if(!boss&&!pendingUpgrade){
+  // Spawn com limite por onda (evita saturação)
+  if(!boss && !pendingUpgrade && enemies.length < getMaxEnemies()){
     spawnClock+=step;
     const elapsed=waveClock;
-    const spawnRate=Math.max(12,70-elapsed*0.35-level*2);
+    const waveMult=WAVES[wave].mult;
+    // spawnRate menor = mais rápido. Base 45 frames, desce com onda e nível
+    const spawnRate=Math.max(14, 45 - wave*3 - level*0.5);
     if(spawnClock>=spawnRate){spawnClock=0;spawnEnemy()}
   }
 
@@ -680,7 +701,7 @@ function update(dt){
       burst(b.x,b.y,"#ffb703",5,3);
       b.life=0;
       if(boss.hp<=0){
-        score+=300+level*15;
+        score+=300+level*15+wave*50;
         burst(boss.x,boss.y,"#ff0055",40,8);
         boss=null;
         bossBarContainer.style.display="none";
@@ -741,6 +762,7 @@ function update(dt){
     updateHUD();
   }
 
+  // Level up → cartas OU boss em ondas específicas
   if(!boss&&!pendingUpgrade&&xp>=maxXp && !paused){
     if(level%5===0){
       xp=0;
