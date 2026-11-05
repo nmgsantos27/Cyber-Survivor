@@ -89,7 +89,7 @@ canvas#cv{display:block;width:100%;height:100%;touch-action:none}
 "use strict";
 
 /* ============================================================
-   GRID RUNNER: CYBER SURVIVOR — V60 (Menu com Stats Diretas)
+   GRID RUNNER: CYBER SURVIVOR — V61 (Custos Escalonados & Naves)
    ============================================================ */
 
 (function initPWA(){
@@ -127,10 +127,10 @@ canvas#cv{display:block;width:100%;height:100%;touch-action:none}
   }catch(e){}
 })();
 
-const SAVE_KEY="gridRunnerBestScoreV60";
-const META_KEY="gridRunnerMetaV60";
-const PROGRESS_KEY="gridRunnerProgressV60";
-const STATS_KEY="gridRunnerStatsV60";
+const SAVE_KEY="gridRunnerBestScoreV61";
+const META_KEY="gridRunnerMetaV61";
+const PROGRESS_KEY="gridRunnerProgressV61";
+const STATS_KEY="gridRunnerStatsV61";
 
 const $=id=>document.getElementById(id);
 const cv=$("cv"),ctx=cv.getContext("2d",{alpha:false});
@@ -139,29 +139,38 @@ const xpBar=$("xpBar"),bossBar=$("bossBar"),bossBarContainer=$("bossBarContainer
 const overlay=$("screenOverlay"),overlayTitle=$("overlayTitle"),menuSubtitle=$("menuSubtitle"),
       overlayActions=$("overlayActions"),overlayStats=$("overlayStats"),menuNote=$("menuNote"),infoAlert=$("infoAlert");
 
-/* ── STATS GLOBAIS DE CONTA ── */
+/* ── STATS GLOBAIS ── */
 function loadStats(){
-  try{
-    const s=JSON.parse(localStorage.getItem(STATS_KEY)||"null");
-    if(s) return s;
-  }catch(e){}
+  try{ const s=JSON.parse(localStorage.getItem(STATS_KEY)||"null"); if(s) return s; }catch(e){}
   return { kills:0, playTime:0, maxLevel:1, gamesPlayed:0, bossesKilled:0 };
 }
 function saveStats(s){ try{localStorage.setItem(STATS_KEY, JSON.stringify(s))}catch(e){} }
 let totalStats=loadStats();
 
-/* ── META PERKS ── */
+/* ── LOJA & PERKS (CUSTOS ESCALONADOS) ── */
 const META_PERKS={
-  hp:      {name:"Núcleo Reforçado", desc:"+20 energia inicial",      cost:50,  max:5},
-  speed:   {name:"Servos",           desc:"+0.15 velocidade inicial", cost:40,  max:5},
-  fire:    {name:"Acelerador",       desc:"+8% cadência inicial",     cost:60,  max:5},
-  magnet:  {name:"Campo Magnético",  desc:"+25 raio de recolha",      cost:35,  max:3},
-  coinGain:{name:"Extrator",         desc:"+15% moedas ganhas",       cost:80,  max:3},
-  revive:  {name:"Backup",           desc:"+1 revive por run",        cost:200, max:2}
+  hp:      {name:"Núcleo Reforçado", desc:"+20 energia inicial",      costs:[30, 60, 120, 220, 350], max:5},
+  speed:   {name:"Servos",           desc:"+0.15 velocidade inicial", costs:[25, 50, 100, 180, 280], max:5},
+  fire:    {name:"Acelerador",       desc:"+8% cadência inicial",     costs:[40, 80, 150, 250, 400], max:5},
+  magnet:  {name:"Campo Magnético",  desc:"+25 raio de recolha",      costs:[35, 75, 140],           max:3},
+  coinGain:{name:"Extrator",         desc:"+15% moedas ganhas",       costs:[50, 100, 200],          max:3},
+  revive:  {name:"Backup",           desc:"+1 revive por run",        costs:[150, 350],              max:2}
 };
+
+/* ── NAVES DESBLOQUEÁVEIS ── */
+const SHIPS={
+  default: {name:"Cyber-X (Padrão)", desc:"Nave equilibrada de fábrica.", cost:0, color:"#00f0ff"},
+  vortex:  {name:"Vortex-V",         desc:"Mais rápida e alta cadência de tiro.", cost:250, color:"#ff9f1c"},
+  spectre: {name:"Spectre-S",        desc:"Íman gigante de recolha de XP.", cost:350, color:"#bd83ff"},
+  biocore: {name:"Bio-Core",         desc:"Regenera energia passivamente.", cost:500, color:"#70e000"}
+};
+
 function loadMeta(){
-  try{ const m=JSON.parse(localStorage.getItem(META_KEY)||"null"); if(m&&m.perms) return m; }catch(e){}
-  return {coins:0, perms:{}};
+  try{ 
+    const m=JSON.parse(localStorage.getItem(META_KEY)||"null"); 
+    if(m && m.perms) return {coins: m.coins||0, perms: m.perms||{}, ships: m.ships||{default:true}, currentShip: m.currentShip||"default"}; 
+  }catch(e){}
+  return {coins:0, perms:{}, ships:{default:true}, currentShip:"default"};
 }
 function saveMeta(m){ try{localStorage.setItem(META_KEY, JSON.stringify(m))}catch(e){} }
 let meta=loadMeta();
@@ -171,7 +180,7 @@ let bestScore=0;try{bestScore=Number(localStorage.getItem(SAVE_KEY))||0}catch(e)
 let running=false,paused=false,gameOver=false;
 let score=0,level=1,xp=0,maxXp=35,energy=100;
 let player,enemies=[],bullets=[],gems=[],energyCells=[],particles=[],mines=[],weaponPickups=[],boss=null,pendingUpgrade=null;
-let spawnClock=0,cellClock=0,idleClock=0,alertClock=0,saveClock=0,mineDropClock=0,weaponPickupClock=0;
+let spawnClock=0,cellClock=0,idleClock=0,alertClock=0,saveClock=0,weaponPickupClock=0;
 let lastFrame=0,raf=0;
 let wave=0,waveClock=0;
 let upgradeQueue=0;
@@ -184,7 +193,6 @@ let recordBrokenThisRun=false;
 
 let runKills=0;
 let runBossesKilled=0;
-
 let cardsLockUntil=0;
 
 const keys=Object.create(null);
@@ -309,22 +317,41 @@ function saveBest(){
   updateHUD();
 }
 
-/* ── PLAYER ── */
+/* ── PLAYER & NAVES ── */
 function newPlayer(w,h){
   const p=meta.perms||{};
-  const maxE=100+(p.hp||0)*20;
+  const ship=meta.currentShip||"default";
+  
+  let baseE = 100 + (p.hp||0)*20;
+  let baseSpd = 3.9 + (p.speed||0)*.15;
+  let baseFire = 28 * Math.pow(.91,(p.fire||0));
+  let baseMag = 90 + (p.magnet||0)*25;
+  let baseRegen = 0;
+  let shipColor = SHIPS[ship]?.color || "#00f0ff";
+
+  if(ship==="vortex"){
+    baseSpd += 0.45;
+    baseFire *= 0.85;
+  }else if(ship==="spectre"){
+    baseMag += 120;
+  }else if(ship==="biocore"){
+    baseRegen += 1.8;
+  }
+
   return {
     x:w/2,y:h/2,radius:13,
-    speed:3.9+(p.speed||0)*.15,
-    fireRate:28*Math.pow(.91,(p.fire||0)),
+    speed:baseSpd,
+    fireRate:baseFire,
     fireTimer:0,damage:1,bulletCount:1,
     range:200,
-    pickupRadius:90+(p.magnet||0)*25,
-    weaponType:"plasma",invulnerable:0,
-    maxEnergy:maxE,
-    regen:0,orbitals:0,nova:0,critChance:0,pierce:0,
+    pickupRadius:baseMag,
+    invulnerable:0,
+    maxEnergy:baseE,
+    regen:baseRegen,
+    orbitals:0,nova:0,critChance:0,pierce:0,
     tempWeapon:null,
-    tempTimer:0
+    tempTimer:0,
+    color:shipColor
   };
 }
 
@@ -455,41 +482,92 @@ function showUpgradeCards(){
   updateHUD();
 }
 
-/* ── SHOP ── */
-function showShop(){
+/* ── LOJA UNIFICADA (PERKS + NAVES) ── */
+function showShop(tab="perks"){
   running=false;paused=false;
   overlay.classList.remove("hidden");
   overlayTitle.textContent="🏪 LOJA";
-  menuSubtitle.textContent="Gasta moedas em melhorias permanentes.";
+  menuSubtitle.textContent="Gasta moedas em melhorias e novas naves.";
   overlayStats.hidden=false;
   overlayStats.innerHTML=`<div class="stat-box"><span>Moedas Disponíveis</span><b>${meta.coins} 🪙</b></div>`;
   overlayActions.innerHTML="";
-  menuNote.textContent="As melhorias aplicam-se em todas as runs futuras.";
 
-  Object.entries(META_PERKS).forEach(([key,perk])=>{
-    const lvl=meta.perms[key]||0;
-    const maxed=lvl>=perk.max;
-    const canAfford=meta.coins>=perk.cost;
-    const div=document.createElement("div");
-    div.className="shop-item";
-    div.innerHTML=`
-      <div class="si-info">
-        <div class="si-name">${perk.name}</div>
-        <div class="si-desc">${perk.desc}</div>
-        <div class="si-lvl">Nv. ${lvl}/${perk.max} · Custo: ${maxed?"MAX":perk.cost+" 🪙"}</div>
-      </div>
-      <button ${maxed||!canAfford?"disabled":""}>${maxed?"MAX":"COMPRAR"}</button>`;
-    const btn=div.querySelector("button");
-    if(!maxed&&canAfford){
-      btn.onclick=()=>{
-        meta.coins-=perk.cost;
-        meta.perms[key]=lvl+1;
-        saveMeta(meta);vibrate(60);
-        showShop();updateHUD();
-      };
-    }
-    overlayActions.appendChild(div);
-  });
+  // Abas de navegação da loja
+  const tabsDiv=document.createElement("div");
+  tabsDiv.style.cssText="display:flex;gap:8px;margin-bottom:10px;width:100%";
+  tabsDiv.innerHTML=`
+    <button class="btn ${tab==='perks'?'':'secondary'}" style="flex:1;margin-top:0;padding:8px" id="tabPerks">MELHORIAS</button>
+    <button class="btn ${tab==='ships'?'':'secondary'}" style="flex:1;margin-top:0;padding:8px" id="tabShips">NAVES</button>
+  `;
+  overlayActions.appendChild(tabsDiv);
+  setTimeout(()=>{
+    $("tabPerks").onclick=()=>showShop("perks");
+    $("tabShips").onclick=()=>showShop("ships");
+  },10);
+
+  if(tab==="perks"){
+    menuNote.textContent="Estatísticas evolutivas com custos por nível.";
+    Object.entries(META_PERKS).forEach(([key,perk])=>{
+      const lvl=meta.perms[key]||0;
+      const maxed=lvl>=perk.max;
+      const nextCost=!maxed ? perk.costs[lvl] : 0;
+      const canAfford=!maxed && meta.coins>=nextCost;
+      const div=document.createElement("div");
+      div.className="shop-item";
+      div.innerHTML=`
+        <div class="si-info">
+          <div class="si-name">${perk.name}</div>
+          <div class="si-desc">${perk.desc}</div>
+          <div class="si-lvl">Nv. ${lvl}/${perk.max} · Custo: ${maxed?"MAX":nextCost+" 🪙"}</div>
+        </div>
+        <button ${maxed||!canAfford?"disabled":""}>${maxed?"MAX":"COMPRAR"}</button>`;
+      const btn=div.querySelector("button");
+      if(!maxed&&canAfford){
+        btn.onclick=()=>{
+          meta.coins-=nextCost;
+          meta.perms[key]=lvl+1;
+          saveMeta(meta);vibrate(60);
+          showShop("perks");updateHUD();
+        };
+      }
+      overlayActions.appendChild(div);
+    });
+  }else{
+    menuNote.textContent="Desbloqueia e seleciona naves com poderes únicos.";
+    Object.entries(SHIPS).forEach(([key,ship])=>{
+      const unlocked=meta.ships[key]||false;
+      const selected=meta.currentShip===key;
+      const canAfford=meta.coins>=ship.cost;
+      const div=document.createElement("div");
+      div.className="shop-item";
+      div.innerHTML=`
+        <div class="si-info">
+          <div class="si-name" style="color:${ship.color}">${ship.name}</div>
+          <div class="si-desc">${ship.desc}</div>
+          <div class="si-lvl">${unlocked?(selected?"★ SELECIONADA":"USAR"):("Custo: "+ship.cost+" 🪙")}</div>
+        </div>
+        <button ${selected||(!unlocked&&!canAfford)?"disabled":""}>${unlocked?(selected?"ATIVO":"SELECIONAR"):"COMPRAR"}</button>`;
+      const btn=div.querySelector("button");
+      if(!selected){
+        if(unlocked){
+          btn.onclick=()=>{
+            meta.currentShip=key;
+            saveMeta(meta);vibrate(50);
+            showShop("ships");updateHUD();
+          };
+        }else if(canAfford){
+          btn.onclick=()=>{
+            meta.coins-=ship.cost;
+            meta.ships[key]=true;
+            meta.currentShip=key;
+            saveMeta(meta);vibrate(80);
+            showShop("ships");updateHUD();
+          };
+        }
+      }
+      overlayActions.appendChild(div);
+    });
+  }
 
   const back=document.createElement("button");
   back.className="btn secondary";back.textContent="VOLTAR AO MENU";
@@ -561,7 +639,6 @@ function showMenu(mode="start"){
     overlayTitle.textContent="GRID RUNNER";
     menuSubtitle.textContent="CYBER SURVIVOR · Sobrevive o máximo que puderes.";
     
-    // Mostra resumo compacto das estatísticas no menu principal
     overlayStats.hidden=false;
     overlayStats.innerHTML=`
       <div class="stat-box"><span>Recorde</span><b>${bestScore.toLocaleString("pt-PT")}</b></div>
@@ -617,7 +694,7 @@ function startGame(resume=false){
   runKills=0; runBossesKilled=0;
   enemies=[];bullets=[];gems=[];energyCells=[];particles=[];mines=[];weaponPickups=[];
   boss=null;pendingUpgrade=null;
-  spawnClock=0;cellClock=0;idleClock=0;mineDropClock=0;weaponPickupClock=0;
+  spawnClock=0;cellClock=0;idleClock=0;weaponPickupClock=0;
   wave=0;waveClock=0;upgradeQueue=0;
   gameOver=false;paused=false;running=true;
   screenShake=0;
@@ -883,7 +960,7 @@ function update(dt){
   player.y=clamp(player.y+vy*player.speed*step,player.radius,h-player.radius);
 
   weaponPickupClock += step;
-  if(weaponPickupClock >= 2200 && weaponPickups.length < 1){
+  if(weaponPickupClock >= 1800 && weaponPickups.length < 1){
     weaponPickupClock = 0;
     const types=["laser","homing","scatter"];
     const chosenType=types[Math.floor(Math.random()*types.length)];
@@ -900,7 +977,7 @@ function update(dt){
   }
 
   cellClock+=step;
-  if(cellClock>=1000&&energyCells.length<2){
+  if(cellClock>=600&&energyCells.length<2){
     cellClock=0;
     energyCells.push({x:rand(30,w-30),y:rand(35,h-35),radius:11,value:25,life:600});
   }
@@ -1195,7 +1272,7 @@ function render(){
       }
     }
     ctx.save();
-    let pColor="#00f0ff";
+    let pColor=player.color;
     if(player.tempWeapon) pColor="#ffb703";
     if(idleClock>=3.5){
       pColor = Math.floor(performance.now()/80)%2===0 ? "#ffb703" : "#ff3864";
