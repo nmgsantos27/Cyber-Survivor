@@ -12,6 +12,7 @@
 <meta name="apple-mobile-web-app-title" content="GridRunner">
 <link id="dynamicFavicon" rel="icon" type="image/png">
 <link id="dynamicAppleIcon" rel="apple-touch-icon">
+<link id="dynamicManifest" rel="manifest">
 <style>
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{width:100%;height:100%;overflow:hidden;background:#03050c;color:#00f0ff;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;user-select:none;-webkit-user-select:none;overscroll-behavior:none}
@@ -88,19 +89,41 @@ canvas#cv{display:block;width:100%;height:100%;touch-action:none}
 "use strict";
 
 /* ============================================================
-   GRID RUNNER: CYBER SURVIVOR — V58 (Estatísticas Globais)
+   GRID RUNNER: CYBER SURVIVOR — V58 (PWA / Ícones / Stats)
    ============================================================ */
 
-(function makeIcon(){
+(function initPWA(){
   try{
     const c=document.createElement("canvas");c.width=c.height=192;const g=c.getContext("2d");
     const bg=g.createRadialGradient(96,96,5,96,96,110);bg.addColorStop(0,"#10233e");bg.addColorStop(1,"#03050c");
     g.fillStyle=bg;g.beginPath();g.roundRect(0,0,192,192,38);g.fill();
     g.strokeStyle="#00f0ff";g.lineWidth=6;g.beginPath();g.moveTo(96,28);g.lineTo(153,61);g.lineTo(153,131);g.lineTo(96,164);g.lineTo(39,131);g.lineTo(39,61);g.closePath();g.stroke();
     g.fillStyle="#00f0ff";g.shadowColor="#00f0ff";g.shadowBlur=15;g.beginPath();g.arc(96,96,23,0,Math.PI*2);g.fill();
-    const url=c.toDataURL("image/png");
-    document.getElementById("dynamicFavicon").href=url;
-    document.getElementById("dynamicAppleIcon").href=url;
+    const iconUrl=c.toDataURL("image/png");
+    document.getElementById("dynamicFavicon").href=iconUrl;
+    document.getElementById("dynamicAppleIcon").href=iconUrl;
+
+    const manifestObj = {
+      name: "Grid Runner: Cyber Survivor",
+      short_name: "GridRunner",
+      start_url: window.location.href.split('#')[0],
+      display: "standalone",
+      background_color: "#03050c",
+      theme_color: "#03050c",
+      icons: [{ src: iconUrl, sizes: "192x192", type: "image/png" }]
+    };
+    const manifestBlob = new Blob([JSON.stringify(manifestObj)], {type: 'application/json'});
+    document.getElementById("dynamicManifest").href = URL.createObjectURL(manifestBlob);
+
+    if('serviceWorker' in navigator){
+      const swCode = `
+        self.addEventListener('install', e => self.skipWaiting());
+        self.addEventListener('activate', e => e.waitUntil(clients.claim()));
+        self.addEventListener('fetch', e => e.respondWith(fetch(e.request).catch(() => caches.match(e.request))));
+      `;
+      const swBlob = new Blob([swCode], {type: 'application/javascript'});
+      navigator.serviceWorker.register(URL.createObjectURL(swBlob)).catch(()=>{});
+    }
   }catch(e){}
 })();
 
@@ -159,7 +182,6 @@ let screenShake=0;
 let hasSavedProgress=false;
 let recordBrokenThisRun=false;
 
-// Stats da partida atual
 let runKills=0;
 let runBossesKilled=0;
 
@@ -592,7 +614,6 @@ function startGame(resume=false){
   updateHUD();
   runStartTime=performance.now();
 
-  // Registar nova partida nas estatísticas globais
   totalStats.gamesPlayed++;
   saveStats(totalStats);
 
@@ -624,7 +645,6 @@ function endGame(){
   energy=0;running=false;paused=false;gameOver=true;
   saveBest();
 
-  // Gravar Estatísticas Globais
   const elapsedSeconds=(performance.now()-runStartTime)/1000;
   totalStats.kills += runKills;
   totalStats.bossesKilled += runBossesKilled;
