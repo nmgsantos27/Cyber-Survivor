@@ -34,10 +34,11 @@ canvas#cv{display:block;width:100%;height:100%;touch-action:none}
 .menu-card{max-width:390px;width:100%;background:#070e22;border:1px solid rgba(0,240,255,.35);border-radius:15px;padding:20px;box-shadow:0 10px 40px rgba(0,0,0,.9),0 0 22px rgba(0,240,255,.1);max-height:100%;overflow-y:auto}
 .title{font-size:clamp(23px,7vw,29px);font-weight:1000;color:#00f0ff;margin-bottom:8px;text-shadow:0 0 12px rgba(0,240,255,.6);letter-spacing:1px}
 .subtitle{font-size:12px;color:#8ba8c3;font-weight:650;line-height:1.55;margin-bottom:15px}
-.btn{width:100%;padding:14px 12px;border-radius:10px;background:#00e5f5;border:0;color:#03050c;font-weight:950;font-size:14px;cursor:pointer;box-shadow:0 0 18px rgba(0,240,255,.35);margin-top:9px}
+.btn{width:100%;padding:14px 12px;border-radius:10px;background:#00e5f5;border:0;color:#03050c;font-weight:950;font-size:14px;cursor:pointer;box-shadow:0 0 18px rgba(0,240,255,.35);margin-top:9px;transition:opacity .25s, transform .15s}
 .btn:active{transform:scale(.98)}
 .btn.secondary{background:#10243d;color:#bcefff;border:1px solid rgba(0,240,255,.35);box-shadow:none}
 .btn.gold{background:#ffb703;color:#03050c;box-shadow:0 0 18px rgba(255,183,3,.4)}
+.btn.locked{opacity:.35;pointer-events:none}
 #infoAlert{position:absolute;top:12px;left:50%;transform:translateX(-50%) translateY(-40px);background:rgba(5,10,25,.96);border:1px solid #00f0ff;color:#00f0ff;padding:6px 16px;border-radius:20px;font-size:11px;font-weight:900;pointer-events:none;opacity:0;transition:all .22s cubic-bezier(0.175, 0.885, 0.32, 1.275);z-index:20;box-shadow:0 0 15px rgba(0,240,255,.3);text-align:center;white-space:nowrap;max-width:92%;overflow:hidden;text-overflow:ellipsis}
 #infoAlert.show{opacity:1;transform:translateX(-50%) translateY(0)}
 .small-note{font-size:10px;color:#63809d;line-height:1.5;margin-top:12px}
@@ -50,6 +51,7 @@ canvas#cv{display:block;width:100%;height:100%;touch-action:none}
 .shop-item .si-lvl{font-size:9px;color:#ffb703;font-weight:800;margin-top:2px}
 .shop-item button{padding:8px 11px;border-radius:7px;background:#ffb703;color:#03050c;border:0;font-weight:900;font-size:11px;cursor:pointer;white-space:nowrap}
 .shop-item button:disabled{background:#1a2840;color:#5a7290;cursor:default}
+.lock-note{font-size:10px;color:#ffb703;font-weight:800;margin-top:8px;letter-spacing:1px;min-height:14px;transition:opacity .3s}
 @media(min-width:520px){#app{height:min(100dvh,900px);border-radius:12px}}
 </style>
 </head>
@@ -84,7 +86,8 @@ canvas#cv{display:block;width:100%;height:100%;touch-action:none}
 "use strict";
 
 /* ============================================================
-   GRID RUNNER: CYBER SURVIVOR — V43 (Ondas Maiores e Mais Densas)
+   GRID RUNNER: CYBER SURVIVOR — V44
+   Cartas com proteção anti-clique acidental + ondas maiores
    ============================================================ */
 
 (function makeIcon(){
@@ -100,8 +103,8 @@ canvas#cv{display:block;width:100%;height:100%;touch-action:none}
   }catch(e){}
 })();
 
-const SAVE_KEY="gridRunnerBestScoreV43";
-const META_KEY="gridRunnerMetaV43";
+const SAVE_KEY="gridRunnerBestScoreV44";
+const META_KEY="gridRunnerMetaV44";
 
 const $=id=>document.getElementById(id);
 const cv=$("cv"),ctx=cv.getContext("2d",{alpha:false});
@@ -139,6 +142,10 @@ let runStartTime=0;
 let revivesLeft=0;
 let lastEarnedCoins=0;
 
+// Estado de bloqueio global das cartas
+let cardsLockUntil=0;
+let cardsBlockedPointer=null;
+
 const keys=Object.create(null);
 const joystick={active:false,id:null,startX:0,startY:0,x:0,y:0,dx:0,dy:0};
 const rand=(a,b)=>a+Math.random()*(b-a);
@@ -153,7 +160,6 @@ const TYPES={
   tank:   {hp:6,speed:0.72,r:17,color:"#ff9f1c",score:40,xp:22,damage:14}
 };
 
-// ONDAS MAIORES: 60s cada, multiplicador crescente
 const WAVES=[
   {t:0,   name:"Inicialização", mult:1.0},
   {t:60,  name:"Enxame",        mult:1.2},
@@ -166,7 +172,6 @@ const WAVES=[
   {t:660, name:"Colapso",       mult:3.5}
 ];
 
-// Limite de inimigos simultâneos por onda
 const MAX_ENEMIES_PER_WAVE=[8,14,20,28,36,45,55,65,80];
 function getMaxEnemies(){
   const idx=Math.min(wave,MAX_ENEMIES_PER_WAVE.length-1);
@@ -247,10 +252,20 @@ function renderParticles(){
   }
 }
 
-/* ── CARTAS DE UPGRADE ── */
+/* ── CARTAS DE UPGRADE (COM PROTEÇÃO ANTI-CLIQUE) ── */
 function showUpgradeCards(){
   if(!overlay.classList.contains("hidden")) return;
   paused=true;
+
+  // Desliga joystick imediatamente
+  joystick.active=false;
+  joystick.id=null;
+  joystick.dx=joystick.dy=0;
+
+  // Bloqueio temporal de 900ms
+  const LOCK_MS=900;
+  cardsLockUntil=performance.now()+LOCK_MS;
+  cardsBlockedPointer=null; // já limpámos o joystick acima
 
   const pool=[
     {id:"rapid",  rarity:"comum", name:"⚡ Overclock",     desc:"+17% cadência de tiro",      apply:()=>player.fireRate=Math.max(7,player.fireRate*.83)},
@@ -290,28 +305,63 @@ function showUpgradeCards(){
   overlayStats.hidden=true;
   overlayActions.innerHTML="";
 
+  const lockNote=document.createElement("div");
+  lockNote.className="lock-note";
+  lockNote.textContent="A PREPARAR CARTAS...";
+  overlayActions.appendChild(lockNote);
+
+  const buttons=[];
+
   picks.forEach(opt=>{
     const btn=document.createElement("button");
-    btn.className="btn secondary";
+    btn.className="btn secondary locked";
     btn.style.cssText=`text-align:left;padding:13px 15px;border-color:${colors[opt.rarity]};margin-top:10px`;
     btn.innerHTML=`<b style="color:${colors[opt.rarity]};font-size:14px">${opt.name}</b>
                    <br><small style="opacity:.9;font-weight:600;color:#cfe9ff">${opt.desc}</small>
                    <br><small style="opacity:.55;font-size:9px;text-transform:uppercase;letter-spacing:1px;color:${colors[opt.rarity]}">${opt.rarity}</small>`;
-    btn.onclick=()=>{
-      opt.apply();
-      level++;
-      overlay.classList.add("hidden");
-      upgradeQueue--;
-      levelLbl.style.transform="scale(1.35)";
-      setTimeout(()=>levelLbl.style.transform="scale(1)",200);
-      if(upgradeQueue>0){showUpgradeCards();return}
-      paused=false;lastFrame=0;
-      cancelAnimationFrame(raf);
-      raf=requestAnimationFrame(loop);
-      updateHUD();
-    };
+
+    // Só aceita pointerdown+pointerup no próprio botão
+    let downId=null;
+    btn.addEventListener("pointerdown",(e)=>{
+      if(performance.now()<cardsLockUntil)return;
+      downId=e.pointerId;
+    });
+    btn.addEventListener("pointerup",(e)=>{
+      if(downId===null)return;
+      if(e.pointerId!==downId)return;
+      if(performance.now()<cardsLockUntil)return;
+      downId=null;
+      selectCard(opt);
+    });
+    btn.addEventListener("pointerleave",()=>{downId=null});
+    btn.addEventListener("pointercancel",()=>{downId=null});
+
+    buttons.push(btn);
     overlayActions.appendChild(btn);
   });
+
+  setTimeout(()=>{
+    lockNote.textContent="";
+    buttons.forEach(b=>b.classList.remove("locked"));
+  },LOCK_MS);
+
+  let picked=false;
+  function selectCard(opt){
+    if(picked)return;
+    picked=true;
+    opt.apply();
+    level++;
+    overlay.classList.add("hidden");
+    upgradeQueue--;
+    levelLbl.style.transform="scale(1.35)";
+    setTimeout(()=>levelLbl.style.transform="scale(1)",200);
+    if(upgradeQueue>0){showUpgradeCards();return}
+    paused=false;lastFrame=0;
+    cancelAnimationFrame(raf);
+    raf=requestAnimationFrame(loop);
+    updateHUD();
+  }
+
   menuNote.textContent="Cada escolha altera a tua build.";
   updateHUD();
 }
@@ -476,7 +526,6 @@ function spawnEnemy(){
   const type=pool[Math.floor(Math.random()*pool.length)];
   const base=TYPES[type];
   const extra=Math.max(0,level-1);
-  // HP escala com nível E com onda
   const waveMult=1+wave*0.18;
   const diff=(1+extra*0.055)*waveMult;
 
@@ -488,7 +537,6 @@ function spawnEnemy(){
     radius:base.r,color:base.color,
     damage:Math.round(base.damage+extra*0.8),
     score:base.score,
-    // XP escala com onda para compensar dificuldade
     xpValue:Math.ceil(base.xp*(1+wave*0.15))
   });
 }
@@ -571,7 +619,6 @@ function update(dt){
   if(player.invulnerable>0)player.invulnerable=Math.max(0,player.invulnerable-dt);
   if(player.regen)energy=Math.min(player.maxEnergy,energy+player.regen*dt);
 
-  // Progressão de ondas (60s cada)
   waveClock+=dt;
   if(wave<WAVES.length-1 && waveClock>=WAVES[wave+1].t){
     wave++;
@@ -606,12 +653,8 @@ function update(dt){
   player.x=clamp(player.x+vx*player.speed*step,player.radius,w-player.radius);
   player.y=clamp(player.y+vy*player.speed*step,player.radius,h-player.radius);
 
-  // Spawn com limite por onda (evita saturação)
   if(!boss && !pendingUpgrade && enemies.length < getMaxEnemies()){
     spawnClock+=step;
-    const elapsed=waveClock;
-    const waveMult=WAVES[wave].mult;
-    // spawnRate menor = mais rápido. Base 45 frames, desce com onda e nível
     const spawnRate=Math.max(14, 45 - wave*3 - level*0.5);
     if(spawnClock>=spawnRate){spawnClock=0;spawnEnemy()}
   }
@@ -762,7 +805,6 @@ function update(dt){
     updateHUD();
   }
 
-  // Level up → cartas OU boss em ondas específicas
   if(!boss&&!pendingUpgrade&&xp>=maxXp && !paused){
     if(level%5===0){
       xp=0;
