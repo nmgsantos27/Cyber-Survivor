@@ -86,8 +86,7 @@ canvas#cv{display:block;width:100%;height:100%;touch-action:none}
 "use strict";
 
 /* ============================================================
-   GRID RUNNER: CYBER SURVIVOR — V46
-   Progressão lenta: maxXp inicial 60, crescimento ×1.85+25
+   GRID RUNNER: CYBER SURVIVOR — V48 (Ultimate Balanced)
    ============================================================ */
 
 (function makeIcon(){
@@ -103,8 +102,8 @@ canvas#cv{display:block;width:100%;height:100%;touch-action:none}
   }catch(e){}
 })();
 
-const SAVE_KEY="gridRunnerBestScoreV46";
-const META_KEY="gridRunnerMetaV46";
+const SAVE_KEY="gridRunnerBestScoreV48";
+const META_KEY="gridRunnerMetaV48";
 
 const $=id=>document.getElementById(id);
 const cv=$("cv"),ctx=cv.getContext("2d",{alpha:false});
@@ -113,7 +112,7 @@ const xpBar=$("xpBar"),bossBar=$("bossBar"),bossBarContainer=$("bossBarContainer
 const overlay=$("screenOverlay"),overlayTitle=$("overlayTitle"),menuSubtitle=$("menuSubtitle"),
       overlayActions=$("overlayActions"),overlayStats=$("overlayStats"),menuNote=$("menuNote"),infoAlert=$("infoAlert");
 
-/* ── META ── */
+/* ── META PERKS ── */
 const META_PERKS={
   hp:      {name:"Núcleo Reforçado", desc:"+20 energia inicial",      cost:50,  max:5},
   speed:   {name:"Servos",           desc:"+0.15 velocidade inicial", cost:40,  max:5},
@@ -129,18 +128,19 @@ function loadMeta(){
 function saveMeta(m){ try{localStorage.setItem(META_KEY, JSON.stringify(m))}catch(e){} }
 let meta=loadMeta();
 
-/* ── ESTADO ── */
+/* ── STATE ── */
 let bestScore=0;try{bestScore=Number(localStorage.getItem(SAVE_KEY))||0}catch(e){}
 let running=false,paused=false,gameOver=false;
-let score=0,level=1,xp=0,maxXp=60,energy=100;   // maxXp inicial 60
+let score=0,level=1,xp=0,maxXp=45,energy=100; // XP inicial mais acessível
 let player,enemies=[],bullets=[],gems=[],energyCells=[],particles=[],boss=null,pendingUpgrade=null;
-let spawnClock=0,cellClock=0,saveClock=0,idleClock=0,alertClock=0;
+let spawnClock=0,cellClock=0,idleClock=0,alertClock=0;
 let lastFrame=0,raf=0;
 let wave=0,waveClock=0;
 let upgradeQueue=0;
 let runStartTime=0;
 let revivesLeft=0;
 let lastEarnedCoins=0;
+let screenShake=0;
 
 let cardsLockUntil=0;
 
@@ -150,28 +150,27 @@ const rand=(a,b)=>a+Math.random()*(b-a);
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 const dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
 
-/* XP base ainda mais baixo (~30% menos que V45) */
 const TYPES={
-  bug:    {hp:1,speed:1.28,r:8, color:"#70e000",score:12,xp:4, damage:7},
-  glitch: {hp:2,speed:1.65,r:10,color:"#00d9ff",score:18,xp:5, damage:9},
-  worm:   {hp:3,speed:0.88,r:14,color:"#ff3864",score:28,xp:7, damage:12},
-  runner: {hp:2,speed:2.15,r:8, color:"#bd83ff",score:22,xp:6, damage:10},
-  tank:   {hp:6,speed:0.72,r:17,color:"#ff9f1c",score:40,xp:10,damage:14}
+  bug:    {hp:1,speed:1.20,r:8, color:"#70e000",score:12,xp:5, damage:6},
+  glitch: {hp:2,speed:1.50,r:10,color:"#00d9ff",score:18,xp:6, damage:8},
+  worm:   {hp:3,speed:0.80,r:14,color:"#ff3864",score:28,xp:8, damage:10},
+  runner: {hp:2,speed:1.95,r:8, color:"#bd83ff",score:22,xp:7, damage:9},
+  tank:   {hp:5,speed:0.65,r:17,color:"#ff9f1c",score:40,xp:12,damage:12}
 };
 
 const WAVES=[
   {t:0,   name:"Inicialização", mult:1.0},
-  {t:60,  name:"Enxame",        mult:1.2},
-  {t:120, name:"Glitches",      mult:1.4},
-  {t:180, name:"Corredores",    mult:1.6},
-  {t:240, name:"Tanques",       mult:1.9},
-  {t:300, name:"⚠ BOSS",        mult:2.0},
-  {t:420, name:"Caos",          mult:2.5},
-  {t:540, name:"⚠ BOSS 2",      mult:3.0},
-  {t:660, name:"Colapso",       mult:3.5}
+  {t:50,  name:"Enxame",        mult:1.15},
+  {t:100, name:"Glitches",      mult:1.3},
+  {t:150, name:"Corredores",    mult:1.5},
+  {t:210, name:"Tanques",       mult:1.75},
+  {t:280, name:"⚠ BOSS",        mult:1.9},
+  {t:360, name:"Caos",          mult:2.2},
+  {t:450, name:"⚠ BOSS 2",      mult:2.6},
+  {t:550, name:"Colapso",       mult:3.0}
 ];
 
-const MAX_ENEMIES_PER_WAVE=[8,14,20,28,36,45,55,65,80];
+const MAX_ENEMIES_PER_WAVE=[8,12,18,24,32,40,48,58,70];
 function getMaxEnemies(){
   const idx=Math.min(wave,MAX_ENEMIES_PER_WAVE.length-1);
   return MAX_ENEMIES_PER_WAVE[idx];
@@ -216,11 +215,11 @@ function newPlayer(w,h){
   const maxE=100+(p.hp||0)*20;
   return {
     x:w/2,y:h/2,radius:13,
-    speed:3.8+(p.speed||0)*.15,
-    fireRate:30*Math.pow(.92,(p.fire||0)),
+    speed:3.9+(p.speed||0)*.15,
+    fireRate:28*Math.pow(.91,(p.fire||0)),
     fireTimer:0,damage:1,bulletCount:1,
-    range:190,
-    pickupRadius:85+(p.magnet||0)*25,
+    range:200,
+    pickupRadius:90+(p.magnet||0)*25,
     weaponType:"plasma",invulnerable:0,
     maxEnergy:maxE,
     regen:0,orbitals:0,nova:0,critChance:0,pierce:0
@@ -251,29 +250,25 @@ function renderParticles(){
   }
 }
 
-/* ── CARTAS ── */
+/* ── CARDS ── */
 function showUpgradeCards(){
   if(!overlay.classList.contains("hidden")) return;
   paused=true;
+  joystick.active=false;joystick.id=null;joystick.dx=joystick.dy=0;
 
-  joystick.active=false;
-  joystick.id=null;
-  joystick.dx=joystick.dy=0;
-
-  const LOCK_MS=900;
+  const LOCK_MS=800;
   cardsLockUntil=performance.now()+LOCK_MS;
 
   const pool=[
-    {id:"rapid",  rarity:"comum", name:"⚡ Overclock",     desc:"+17% cadência de tiro",      apply:()=>player.fireRate=Math.max(7,player.fireRate*.83)},
-    {id:"range",  rarity:"comum", name:"🎯 Mira Ampliada", desc:"+40 alcance",                 apply:()=>player.range+=40},
+    {id:"rapid",  rarity:"comum", name:"⚡ Overclock",     desc:"+18% cadência de tiro",      apply:()=>player.fireRate=Math.max(6,player.fireRate*.82)},
+    {id:"range",  rarity:"comum", name:"🎯 Mira Ampliada", desc:"+45 alcance",                 apply:()=>player.range+=45},
     {id:"damage", rarity:"comum", name:"⚔ Plasma Pesado",  desc:"+1 dano",                     apply:()=>player.damage+=1},
-    {id:"speed",  rarity:"comum", name:"🚀 Propulsor",     desc:"+0.35 velocidade",            apply:()=>player.speed=Math.min(5.6,player.speed+.35)},
-    {id:"shield", rarity:"comum", name:"🛡 Blindagem",     desc:"+30% energia",                apply:()=>energy=Math.min(player.maxEnergy,energy+player.maxEnergy*.3)},
-    {id:"magnet", rarity:"comum", name:"🧲 Ímã de XP",     desc:"+60 raio de recolha",         apply:()=>player.pickupRadius=(player.pickupRadius||85)+60},
-    {id:"double", rarity:"raro",  name:"💥 Canhão Duplo",  desc:"+1 projétil por disparo",     apply:()=>{player.bulletCount=Math.min(6,player.bulletCount+1);player.weaponType="dual"}},
-    {id:"crit",   rarity:"raro",  name:"🎲 Crítico",       desc:"+12% chance de 2x dano",      apply:()=>player.critChance=(player.critChance||0)+.12},
+    {id:"speed",  rarity:"comum", name:"🚀 Propulsor",     desc:"+0.35 velocidade",            apply:()=>player.speed=Math.min(5.8,player.speed+.35)},
+    {id:"shield", rarity:"comum", name:"🛡 Blindagem",     desc:"+35% energia",                apply:()=>energy=Math.min(player.maxEnergy,energy+player.maxEnergy*.35)},
+    {id:"magnet", rarity:"comum", name:"🧲 Ímã de XP",     desc:"+70 raio de recolha",         apply:()=>player.pickupRadius=(player.pickupRadius||90)+70},
+    {id:"crit",   rarity:"raro",  name:"🎲 Crítico",       desc:"+15% chance de 2x dano",      apply:()=>player.critChance=(player.critChance||0)+.15},
     {id:"pierce", rarity:"raro",  name:"🗡 Perfurante",    desc:"Balas atravessam 1 inimigo",  apply:()=>player.pierce=(player.pierce||0)+1},
-    {id:"regen",  rarity:"raro",  name:"💚 Regeneração",   desc:"+1% energia/seg",             apply:()=>player.regen=(player.regen||0)+1},
+    {id:"regen",  rarity:"raro",  name:"💚 Regeneração",   desc:"+1.2% energia/seg",           apply:()=>player.regen=(player.regen||0)+1.2},
     {id:"orbit",  rarity:"épico", name:"🪐 Satélite",      desc:"Orbe que dispara sozinho",    apply:()=>player.orbitals=(player.orbitals||0)+1},
     {id:"nova",   rarity:"épico", name:"💥 Nova",          desc:"Explosão defensiva ao levar dano", apply:()=>player.nova=(player.nova||0)+1}
   ];
@@ -297,7 +292,7 @@ function showUpgradeCards(){
 
   overlay.classList.remove("hidden");
   overlayTitle.textContent="⬆ NÍVEL "+(level+1);
-  menuSubtitle.textContent="Escolhe uma melhoria";
+  menuSubtitle.textContent="Escolhe uma melhoria táctica";
   overlayStats.hidden=true;
   overlayActions.innerHTML="";
 
@@ -307,7 +302,6 @@ function showUpgradeCards(){
   overlayActions.appendChild(lockNote);
 
   const buttons=[];
-
   picks.forEach(opt=>{
     const btn=document.createElement("button");
     btn.className="btn secondary locked";
@@ -328,9 +322,6 @@ function showUpgradeCards(){
       downId=null;
       selectCard(opt);
     });
-    btn.addEventListener("pointerleave",()=>{downId=null});
-    btn.addEventListener("pointercancel",()=>{downId=null});
-
     buttons.push(btn);
     overlayActions.appendChild(btn);
   });
@@ -346,8 +337,8 @@ function showUpgradeCards(){
     picked=true;
     opt.apply();
     level++;
-    // Curva de XP agressiva: ×1.85 + 25
-    maxXp=Math.floor(maxXp*1.85+25);
+    // Curva progressiva equilibrada: maxXp * 1.35 + 20
+    maxXp=Math.floor(maxXp*1.35+20);
     overlay.classList.add("hidden");
     upgradeQueue--;
     levelLbl.style.transform="scale(1.35)";
@@ -358,8 +349,7 @@ function showUpgradeCards(){
     raf=requestAnimationFrame(loop);
     updateHUD();
   }
-
-  menuNote.textContent="Cada escolha altera a tua build.";
+  menuNote.textContent="Cada escolha altera a tua build de sobrevivência.";
   updateHUD();
 }
 
@@ -409,6 +399,7 @@ function showShop(){
 /* ── MENU ── */
 function showMenu(mode="start"){
   running=false;paused=false;
+  joystick.active=false;joystick.id=null;joystick.dx=joystick.dy=0;
   overlay.classList.remove("hidden");
   overlayActions.innerHTML="";overlayStats.hidden=true;
 
@@ -452,7 +443,7 @@ function addButton(label,action,kind=""){
 /* ── START/END ── */
 function startGame(){
   resizeCanvas();
-  score=0;level=1;xp=0;maxXp=60;
+  score=0;level=1;xp=0;maxXp=45;
   player=newPlayer(cv.clientWidth,cv.clientHeight);
   energy=player.maxEnergy;
   revivesLeft=meta.perms.revive||0;
@@ -460,7 +451,8 @@ function startGame(){
   boss=null;pendingUpgrade=null;
   spawnClock=0;cellClock=0;idleClock=0;
   wave=0;waveClock=0;upgradeQueue=0;
-  gameOver=false;paused=false;running=true;saveClock=0;
+  gameOver=false;paused=false;running=true;
+  screenShake=0;
   bossBarContainer.style.display="none";
   overlay.classList.add("hidden");
   updateHUD();
@@ -479,10 +471,10 @@ function resumeGame(){
 function endGame(){
   if(revivesLeft>0){
     revivesLeft--;
-    energy=player.maxEnergy*0.6;
+    energy=player.maxEnergy*0.7;
     enemies=[];bullets=bullets.filter(b=>!b.hostile);
     player.invulnerable=2;
-    burst(player.x,player.y,"#00f0ff",30,6);
+    burst(player.x,player.y,"#00f0ff",35,6);
     showAlert("💾 BACKUP ATIVADO! Revives: "+revivesLeft);
     vibrate([200,80,200]);
     updateHUD();
@@ -518,21 +510,20 @@ function spawnEnemy(){
   if(level>=3)pool.push("worm");
   if(level>=5)pool.push("runner");
   if(level>=8)pool.push("tank");
-  if(level>=12)pool.push("tank","runner","worm");
 
   const type=pool[Math.floor(Math.random()*pool.length)];
   const base=TYPES[type];
   const extra=Math.max(0,level-1);
-  const waveMult=1+wave*0.18;
-  const diff=(1+extra*0.055)*waveMult;
+  const waveMult=1+wave*0.14;
+  const diff=(1+extra*0.045)*waveMult;
 
   enemies.push({
     x,y,type,
     hp:Math.ceil(base.hp*diff),
     maxHp:Math.ceil(base.hp*diff),
-    speed:base.speed*(1+Math.min(extra,30)*0.012),
+    speed:base.speed*(1+Math.min(extra,30)*0.01),
     radius:base.r,color:base.color,
-    damage:Math.round(base.damage+extra*0.8),
+    damage:Math.round(base.damage+extra*0.6),
     score:base.score,
     xpValue:base.xp
   });
@@ -540,46 +531,46 @@ function spawnEnemy(){
 
 function spawnBoss(){
   const w=cv.clientWidth,h=cv.clientHeight;
-  const hp=75+level*15+wave*40;
-  boss={x:w/2,y:-40,radius:28,hp,maxHp:hp,speed:1.08+Math.min(level,25)*.022,
-        phase:1,attackTimer:90,burstTimer:200};
+  const hp=60+level*12+wave*35;
+  boss={x:w/2,y:-40,radius:28,hp,maxHp:hp,speed:1.05+Math.min(level,25)*.02,
+        phase:1,attackTimer:95,burstTimer:210};
   bossBarContainer.style.display="block";
   updateHUD();
-  showAlert("⚠ BOSS DETETADO!");
+  showAlert("⚠ BOSS DETETADO NA ARENA!");
   vibrate([120,60,120]);
 }
 
 function spawnUpgradeModule(){
   const w=cv.clientWidth,h=cv.clientHeight;
   const opts=[
-    {id:"rapid", name:"⚡ Overclock",      apply:()=>{player.fireRate=Math.max(7,player.fireRate*.83);showAlert("⚡ Overclock!")}},
-    {id:"range", name:"🎯 Mira Ampliada",  apply:()=>{player.range+=40;showAlert("🎯 Mira!")}},
-    {id:"damage",name:"⚔ Plasma Pesado",   apply:()=>{player.damage+=1;showAlert("⚔ Dano+1!")}},
-    {id:"double",name:"💥 Canhão Duplo",   apply:()=>{player.bulletCount=Math.min(6,player.bulletCount+1);player.weaponType="dual";showAlert("💥 Duplo!")}},
-    {id:"speed", name:"🚀 Propulsor",      apply:()=>{player.speed=Math.min(5.6,player.speed+.35);showAlert("🚀 Propulsor!")}},
-    {id:"shield",name:"🛡 Blindagem",      apply:()=>{energy=Math.min(player.maxEnergy,energy+player.maxEnergy*.3);showAlert("🛡 +30% Energia!")}}
+    {id:"rapid", name:"⚡ Overclock",      apply:()=>{player.fireRate=Math.max(6,player.fireRate*.82);showAlert("⚡ Overclock Ativado!")}},
+    {id:"range", name:"🎯 Mira Ampliada",  apply:()=>{player.range+=45;showAlert("🎯 Mira Ampliada!")}},
+    {id:"damage",name:"⚔ Plasma Pesado",   apply:()=>{player.damage+=1;showAlert("⚔ Plasma Pesado!")}},
+    {id:"speed", name:"🚀 Propulsor",      apply:()=>{player.speed=Math.min(5.8,player.speed+.35);showAlert("🚀 Propulsor Ativo!")}},
+    {id:"shield",name:"🛡 Blindagem",      apply:()=>{energy=Math.min(player.maxEnergy,energy+player.maxEnergy*.35);showAlert("🛡 Blindagem (+35% Energia)!")}}
   ];
   const chosen=opts[Math.floor(Math.random()*opts.length)];
   pendingUpgrade={
     x:rand(50,w-50),y:rand(50,h-50),
     radius:18,data:chosen
   };
-  showAlert("🎁 MÓDULO DE BOSS NA ARENA!");
+  showAlert("🎁 MÓDULO DE BOSS DISPONÍVEL!");
   vibrate(90);
 }
 
 /* ── DAMAGE ── */
 function damagePlayer(amount){
   if(player.invulnerable>0)return;
-  const dmg=Math.round(amount+(level-1)*0.9);
+  const dmg=Math.round(amount+(level-1)*0.7);
   energy=Math.max(0,energy-dmg);
-  player.invulnerable=.75;
-  burst(player.x,player.y,"#ff3864",14,5);
-  vibrate([110,40,110]);
+  player.invulnerable=.8;
+  screenShake=10; // Efeito de abanão no ecrã
+  burst(player.x,player.y,"#ff3864",15,5);
+  vibrate([120,40,120]);
   if(player.nova){
-    for(const e of enemies) if(dist(player,e)<95){e.hp-=3;burst(e.x,e.y,e.color,6,3)}
+    for(const e of enemies) if(dist(player,e)<110){e.hp-=4;burst(e.x,e.y,e.color,6,3)}
     burst(player.x,player.y,"#ff3864",25,6);
-    showAlert("💥 NOVA!");
+    showAlert("💥 NOVA DEFENSIVA!");
   }
   updateHUD();
   if(energy<=0)endGame();
@@ -592,14 +583,14 @@ function shoot(){
   else for(const e of enemies){const d=dist(player,e);if(d<min){min=d;target=e}}
   if(!target)return;
   const angle=Math.atan2(target.y-player.y,target.x-player.x);
-  const count=Math.min(6,player.bulletCount);
+  const count=Math.min(5,player.bulletCount);
   for(let i=0;i<count;i++){
-    const spread=(i-(count-1)/2)*.16,a=angle+spread;
+    const spread=(i-(count-1)/2)*.15,a=angle+spread;
     bullets.push({
       x:player.x,y:player.y,
-      vx:Math.cos(a)*8.5,vy:Math.sin(a)*8.5,
-      damage:player.damage,life:Math.ceil(player.range/8.5)+12,
-      color:player.weaponType==="dual"?"#ffb703":"#00f0ff",
+      vx:Math.cos(a)*9,vy:Math.sin(a)*9,
+      damage:player.damage,life:Math.ceil(player.range/9)+12,
+      color:player.bulletCount>1?"#ffb703":"#00f0ff",
       pierceLeft:player.pierce||0
     });
   }
@@ -610,9 +601,7 @@ function update(dt){
   if(!running || paused) return;
   const w=cv.clientWidth,h=cv.clientHeight,step=dt*60;
 
-  saveClock+=step;
-  if(saveClock>=300){saveClock=0}
-
+  if(screenShake>0) screenShake=Math.max(0, screenShake - step*0.8);
   if(player.invulnerable>0)player.invulnerable=Math.max(0,player.invulnerable-dt);
   if(player.regen)energy=Math.min(player.maxEnergy,energy+player.regen*dt);
 
@@ -633,9 +622,14 @@ function update(dt){
   const moving=Math.hypot(vx,vy)>.08;
 
   if(moving){
-    idleClock=0;player.nextIdleDmg=0;
+    idleClock=0;
+    player.nextIdleDmg=0;
   }else{
     idleClock+=dt;
+    // Aviso prévio aos 3.5 segundos
+    if(idleClock>=3.5 && idleClock<3.7){
+      showAlert("⚠️ ALERTA: SOBREAQUECIMENTO PRÓXIMO!");
+    }
     if(idleClock>=5){
       if(!player.nextIdleDmg||idleClock>=player.nextIdleDmg){
         energy=Math.max(0,energy-5);
@@ -652,12 +646,12 @@ function update(dt){
 
   if(!boss && !pendingUpgrade && enemies.length < getMaxEnemies()){
     spawnClock+=step;
-    const spawnRate=Math.max(14, 45 - wave*3 - level*0.5);
+    const spawnRate=Math.max(16, 48 - wave*2.5 - level*0.4);
     if(spawnClock>=spawnRate){spawnClock=0;spawnEnemy()}
   }
 
   cellClock+=step;
-  if(cellClock>=620&&energyCells.length<2){
+  if(cellClock>=650&&energyCells.length<2){
     cellClock=0;
     energyCells.push({x:rand(30,w-30),y:rand(35,h-35),radius:11,value:25,life:600});
   }
@@ -689,17 +683,18 @@ function update(dt){
     if(boss.phase===1&&boss.hp<boss.maxHp*0.5){
       boss.phase=2;
       showAlert("⚠ BOSS ENFURECEU!");
-      burst(boss.x,boss.y,"#ff0055",30,7);
+      screenShake=12;
+      burst(boss.x,boss.y,"#ff0055",35,7);
       vibrate([200,80,200]);
     }
 
     boss.attackTimer-=step;
     if(boss.attackTimer<=0){
-      boss.attackTimer=Math.max(55,100-level*1.3);
+      boss.attackTimer=Math.max(60,110-level*1.2);
       const ba=Math.atan2(player.y-boss.y,player.x-boss.x);
       for(let k=-1;k<=1;k++){
         const aa=ba+k*.22;
-        bullets.push({x:boss.x,y:boss.y,vx:Math.cos(aa)*3.1,vy:Math.sin(aa)*3.1,
+        bullets.push({x:boss.x,y:boss.y,vx:Math.cos(aa)*3.0,vy:Math.sin(aa)*3.0,
           damage:0,hostile:true,life:110,color:"#ff3864",pierceLeft:0});
       }
     }
@@ -707,11 +702,11 @@ function update(dt){
     if(boss.phase===2){
       boss.burstTimer-=step;
       if(boss.burstTimer<=0){
-        boss.burstTimer=110;
+        boss.burstTimer=120;
         const n=12;
         for(let i=0;i<n;i++){
           const aa=i/n*Math.PI*2;
-          bullets.push({x:boss.x,y:boss.y,vx:Math.cos(aa)*2.6,vy:Math.sin(aa)*2.6,
+          bullets.push({x:boss.x,y:boss.y,vx:Math.cos(aa)*2.5,vy:Math.sin(aa)*2.5,
             damage:0,hostile:true,life:140,color:"#ff3864",pierceLeft:0});
         }
       }
@@ -733,7 +728,7 @@ function update(dt){
 
   for(const b of bullets){
     if(b.hostile){
-      if(dist(player,b)<player.radius+5){b.life=0;damagePlayer(9)}
+      if(dist(player,b)<player.radius+5){b.life=0;damagePlayer(8)}
       continue;
     }
     if(boss&&dist(b,boss)<boss.radius+4){
@@ -741,13 +736,14 @@ function update(dt){
       burst(b.x,b.y,"#ffb703",5,3);
       b.life=0;
       if(boss.hp<=0){
-        score+=300+level*15+wave*50;
-        burst(boss.x,boss.y,"#ff0055",40,8);
+        score+=350+level*15+wave*50;
+        screenShake=15;
+        burst(boss.x,boss.y,"#ff0055",50,8);
         boss=null;
         bossBarContainer.style.display="none";
         level+=(level%5===0)?2:1;
         xp=0;
-        maxXp=Math.floor(maxXp*1.85+25);
+        maxXp=Math.floor(maxXp*1.35+20);
         spawnUpgradeModule();
         saveBest();
       }
@@ -778,7 +774,7 @@ function update(dt){
 
   for(const g of gems){
     const d=dist(player,g);
-    const pr=player.pickupRadius||85;
+    const pr=player.pickupRadius||90;
     if(d<pr){g.x+=(player.x-g.x)*.14;g.y+=(player.y-g.y)*.14}
     if(d<player.radius+5){g.collected=true;xp+=g.value}
   }
@@ -789,7 +785,7 @@ function update(dt){
     if(dist(player,c)<player.radius+c.radius){
       c.collected=true;
       energy=Math.min(player.maxEnergy,energy+c.value);
-      burst(c.x,c.y,"#00f0ff",10,4);
+      burst(c.x,c.y,"#00f0ff",12,4);
       showAlert("🔋 +"+c.value+"% Energia");
       updateHUD();
     }
@@ -798,7 +794,7 @@ function update(dt){
 
   if(pendingUpgrade&&dist(player,pendingUpgrade)<player.radius+pendingUpgrade.radius){
     pendingUpgrade.data.apply();
-    burst(pendingUpgrade.x,pendingUpgrade.y,"#ffb703",20,5);
+    burst(pendingUpgrade.x,pendingUpgrade.y,"#ffb703",22,5);
     pendingUpgrade=null;
     updateHUD();
   }
@@ -823,6 +819,13 @@ function render(){
   const w=cv.clientWidth,h=cv.clientHeight;
   ctx.clearRect(0,0,w,h);
   ctx.fillStyle="#03050c";ctx.fillRect(0,0,w,h);
+
+  ctx.save();
+  if(screenShake>0){
+    const sx=(Math.random()-0.5)*screenShake;
+    const sy=(Math.random()-0.5)*screenShake;
+    ctx.translate(sx, sy);
+  }
 
   ctx.strokeStyle="rgba(0,240,255,.055)";ctx.lineWidth=1;
   for(let x=0;x<w;x+=32){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,h);ctx.stroke()}
@@ -898,8 +901,13 @@ function render(){
       }
     }
     ctx.save();
+    // Pisca a amarelo/vermelho perto de sobreaquecer (entre 3.5s e 5s parado)
+    let pColor="#00f0ff";
+    if(idleClock>=3.5){
+      pColor = Math.floor(performance.now()/80)%2===0 ? "#ffb703" : "#ff3864";
+    }
     ctx.globalAlpha=player.invulnerable>0&&Math.floor(performance.now()/90)%2===0?.35:1;
-    ctx.fillStyle="#00f0ff";ctx.shadowColor="#00f0ff";ctx.shadowBlur=15;
+    ctx.fillStyle=pColor;ctx.shadowColor=pColor;ctx.shadowBlur=15;
     ctx.beginPath();ctx.arc(player.x,player.y,player.radius,0,Math.PI*2);ctx.fill();
     ctx.strokeStyle="#fff";ctx.lineWidth=2;ctx.stroke();
     ctx.restore();
@@ -915,6 +923,8 @@ function render(){
     ctx.beginPath();ctx.arc(joystick.x,joystick.y,19,0,Math.PI*2);ctx.fill();
     ctx.restore();
   }
+
+  ctx.restore();
 }
 
 /* ── LOOP ── */
