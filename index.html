@@ -86,7 +86,7 @@ canvas#cv{display:block;width:100%;height:100%;touch-action:none}
 "use strict";
 
 /* ============================================================
-   GRID RUNNER: CYBER SURVIVOR — V52 (Novas Armas e Tipos de Ataque)
+   GRID RUNNER: CYBER SURVIVOR — V53 (Fix Recorde & Balanceamento Laser)
    ============================================================ */
 
 (function makeIcon(){
@@ -102,9 +102,9 @@ canvas#cv{display:block;width:100%;height:100%;touch-action:none}
   }catch(e){}
 })();
 
-const SAVE_KEY="gridRunnerBestScoreV52";
-const META_KEY="gridRunnerMetaV52";
-const PROGRESS_KEY="gridRunnerProgressV52";
+const SAVE_KEY="gridRunnerBestScoreV53";
+const META_KEY="gridRunnerMetaV53";
+const PROGRESS_KEY="gridRunnerProgressV53";
 
 const $=id=>document.getElementById(id);
 const cv=$("cv"),ctx=cv.getContext("2d",{alpha:false});
@@ -244,8 +244,13 @@ function updateHUD(){
 
   if(boss)bossBar.style.width=clamp(boss.hp/boss.maxHp*100,0,100)+"%";
 }
+
 function saveBest(){
-  if(score>bestScore){bestScore=Math.floor(score);try{localStorage.setItem(SAVE_KEY,String(bestScore))}catch(e){}}
+  if(score > bestScore){
+    bestScore = Math.floor(score);
+    try{ localStorage.setItem(SAVE_KEY, String(bestScore)); }catch(e){}
+    showAlert("🏆 NOVO RECORDE: " + bestScore.toLocaleString("pt-PT") + "!");
+  }
   updateHUD();
 }
 
@@ -263,9 +268,9 @@ function newPlayer(w,h){
     weaponType:"plasma",invulnerable:0,
     maxEnergy:maxE,
     regen:0,orbitals:0,nova:0,critChance:0,pierce:0,
-    laser:0,      // Nova arma: Raio Laser
-    homing:0,     // Nova arma: Mísseis Teleguiados
-    mines:0       // Nova arma: Minas Cibernéticas
+    laser:0,      // Raio Laser equilibrado (alcance curto/médio e dano gradual)
+    homing:0,     // Mísseis Teleguiados
+    mines:0       // Minas Cibernéticas
   };
 }
 
@@ -293,7 +298,7 @@ function renderParticles(){
   }
 }
 
-/* ── CARDS (COM NOVAS ARMAS) ── */
+/* ── CARDS ── */
 function showUpgradeCards(){
   if(!overlay.classList.contains("hidden")) return;
   paused=true;
@@ -312,7 +317,7 @@ function showUpgradeCards(){
     {id:"crit",   rarity:"raro",  name:"🎲 Crítico",       desc:"+15% chance de 2x dano",      apply:()=>player.critChance=(player.critChance||0)+.15},
     {id:"pierce", rarity:"raro",  name:"🗡 Perfurante",    desc:"Balas atravessam 1 inimigo",  apply:()=>player.pierce=(player.pierce||0)+1},
     {id:"regen",  rarity:"raro",  name:"💚 Regeneração",   desc:"+1.2% energia/seg",           apply:()=>player.regen=(player.regen||0)+1.2},
-    {id:"laser",  rarity:"raro",  name:"⚡ Raio Laser",    desc:"Emite feixe contínuo de dano",apply:()=>player.laser=(player.laser||0)+1},
+    {id:"laser",  rarity:"raro",  name:"⚡ Feixe Laser",   desc:"Foco de dano a curta distância",apply:()=>player.laser=(player.laser||0)+1},
     {id:"homing", rarity:"raro",  name:"💥 Mísseis Guia",  desc:"Dispara mísseis teleguiados", apply:()=>player.homing=(player.homing||0)+1},
     {id:"mines",  rarity:"épico", name:"💣 Minas Cibern.", desc:"Deixa minas explosivas no chão",apply:()=>player.mines=(player.mines||0)+1},
     {id:"orbit",  rarity:"épico", name:"🪐 Satélite",      desc:"Orbe que dispara sozinho",    apply:()=>player.orbitals=(player.orbitals||0)+1},
@@ -650,7 +655,7 @@ function damagePlayer(amount){
   if(energy<=0)endGame();
 }
 
-/* ── SHOOT (COM MÍSSEIS TELEGUIDADOS) ── */
+/* ── SHOOT ── */
 function shoot(){
   let target=null,min=player.range;
   if(boss)target=boss;
@@ -670,7 +675,6 @@ function shoot(){
     });
   }
 
-  // Disparo de Mísseis Teleguiados
   if(player.homing > 0 && enemies.length > 0){
     for(let m=0; m<player.homing; m++){
       const ta=enemies[Math.floor(Math.random()*enemies.length)];
@@ -737,7 +741,6 @@ function update(dt){
   player.x=clamp(player.x+vx*player.speed*step,player.radius,w-player.radius);
   player.y=clamp(player.y+vy*player.speed*step,player.radius,h-player.radius);
 
-  // Deixar Minas Cibernéticas no chão se ativo
   if(player.mines > 0){
     mineDropClock += step;
     if(mineDropClock >= 120){
@@ -761,7 +764,6 @@ function update(dt){
   player.fireTimer+=step;
   if(player.fireTimer>=player.fireRate){player.fireTimer=0;shoot()}
 
-  // Satélites Orbitais
   if(player.orbitals){
     for(let i=0;i<player.orbitals;i++){
       const ang=performance.now()/700+i*(Math.PI*2/player.orbitals);
@@ -775,18 +777,21 @@ function update(dt){
     }
   }
 
-  // Raio Laser Contínuo automático no inimigo mais próximo
+  // Raio Laser Equilibrado (Curto alcance e dano progressivo moderado)
   if(player.laser > 0 && enemies.length > 0){
-    let t=enemies[0], minD=dist(player,t);
-    for(const e of enemies){const d=dist(player,e);if(d<minD){minD=d;t=e;}}
-    if(minD < player.range + 50){
-      t.hp -= (0.15 * player.laser * step);
-      burst(t.x, t.y, "#00f0ff", 1, 1);
-      if(t.hp <= 0){ score += t.score; gems.push({x:t.x,y:t.y,value:t.xpValue}); }
+    for(const e of enemies){
+      const d = dist(player, e);
+      if(d < 90 + (player.laser * 15)){ // Alcance limitado e controlável
+        e.hp -= (0.04 * player.laser * step);
+        if(Math.random() < 0.3) burst(e.x, e.y, "#00f0ff", 1, 1);
+        if(e.hp <= 0){
+          score += e.score;
+          gems.push({x:e.x, y:e.y, value:e.xpValue});
+        }
+      }
     }
   }
 
-  // Atualização de Mísseis e Balas
   for(const b of bullets){
     if(b.homing && enemies.length > 0){
       let nt = enemies[0], nd = dist(b, nt);
@@ -798,7 +803,6 @@ function update(dt){
   }
   bullets=bullets.filter(b=>b.life>0&&b.x>-40&&b.x<w+40&&b.y>-40&&b.y<h+40);
 
-  // Verificação de Minas Cibernéticas
   for(const m of mines){
     m.life -= step;
     for(const e of enemies){
@@ -910,6 +914,12 @@ function update(dt){
   }
   enemies=enemies.filter(e=>e.hp>0);
 
+  // Verificação em tempo real do Recorde à medida que os pontos sobem
+  if(score > bestScore){
+    bestScore = Math.floor(score);
+    try{ localStorage.setItem(SAVE_KEY, String(bestScore)); }catch(e){}
+  }
+
   for(const g of gems){
     const d=dist(player,g);
     const pr=player.pickupRadius||90;
@@ -981,7 +991,6 @@ function render(){
     ctx.restore();
   }
 
-  // Renderizar Minas Cibernéticas
   for(const m of mines){
     ctx.save();
     ctx.fillStyle="#ffb703"; ctx.shadowColor="#ffb703"; ctx.shadowBlur=10;
@@ -1034,21 +1043,31 @@ function render(){
   for(const b of bullets){
     ctx.save();
     ctx.fillStyle=b.color||(b.hostile?"#ff3864":"#00f0ff");
-    ctx.shadowColor=ctx.fillStyle;ctx.shadowBlur=7;
+    ctx.shadowColor=b.fillStyle;ctx.shadowBlur=7;
     ctx.beginPath();ctx.arc(b.x,b.y,b.hostile?4:3,0,Math.PI*2);ctx.fill();
     ctx.restore();
   }
 
-  // Desenhar Raio Laser se ativo
-  if(player.laser > 0 && enemies.length > 0){
-    let t=enemies[0], minD=dist(player,t);
-    for(const e of enemies){const d=dist(player,e);if(d<minD){minD=d;t=e;}}
-    if(minD < player.range + 50){
-      ctx.save();
-      ctx.strokeStyle = "#00f0ff"; ctx.lineWidth = player.laser * 1.5;
-      ctx.shadowColor = "#00f0ff"; ctx.shadowBlur = 12;
-      ctx.beginPath(); ctx.moveTo(player.x, player.y); ctx.lineTo(t.x, t.y); ctx.stroke();
-      ctx.restore();
+  // Renderizar aura do Feixe Laser em redor do jogador (área de proteção de curto alcance)
+  if(player.laser > 0){
+    ctx.save();
+    ctx.strokeStyle = "rgba(0, 240, 255, 0.4)";
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath();
+    ctx.arc(player.x, player.y, 90 + (player.laser * 15), 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+
+    // Linhas subtis de laser para os inimigos dentro do raio de ação
+    for(const e of enemies){
+      if(dist(player, e) < 90 + (player.laser * 15)){
+        ctx.save();
+        ctx.strokeStyle = "#00f0ff"; ctx.lineWidth = Math.min(3, player.laser);
+        ctx.shadowColor = "#00f0ff"; ctx.shadowBlur = 8;
+        ctx.beginPath(); ctx.moveTo(player.x, player.y); ctx.lineTo(e.x, e.y); ctx.stroke();
+        ctx.restore();
+      }
     }
   }
 
