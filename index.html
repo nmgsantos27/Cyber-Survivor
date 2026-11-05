@@ -86,7 +86,7 @@ canvas#cv{display:block;width:100%;height:100%;touch-action:none}
 "use strict";
 
 /* ============================================================
-   GRID RUNNER: CYBER SURVIVOR — V56 (Alerta Único de Recorde)
+   GRID RUNNER: CYBER SURVIVOR — V57 (Ritmo Rápido e Desafiante)
    ============================================================ */
 
 (function makeIcon(){
@@ -102,9 +102,9 @@ canvas#cv{display:block;width:100%;height:100%;touch-action:none}
   }catch(e){}
 })();
 
-const SAVE_KEY="gridRunnerBestScoreV56";
-const META_KEY="gridRunnerMetaV56";
-const PROGRESS_KEY="gridRunnerProgressV56";
+const SAVE_KEY="gridRunnerBestScoreV57";
+const META_KEY="gridRunnerMetaV57";
+const PROGRESS_KEY="gridRunnerProgressV57";
 
 const $=id=>document.getElementById(id);
 const cv=$("cv"),ctx=cv.getContext("2d",{alpha:false});
@@ -132,7 +132,7 @@ let meta=loadMeta();
 /* ── STATE ── */
 let bestScore=0;try{bestScore=Number(localStorage.getItem(SAVE_KEY))||0}catch(e){}
 let running=false,paused=false,gameOver=false;
-let score=0,level=1,xp=0,maxXp=45,energy=100;
+let score=0,level=1,xp=0,maxXp=35,energy=100; // XP inicial mais baixo para progressão rápida
 let player,enemies=[],bullets=[],gems=[],energyCells=[],particles=[],mines=[],weaponPickups=[],boss=null,pendingUpgrade=null;
 let spawnClock=0,cellClock=0,idleClock=0,alertClock=0,saveClock=0,mineDropClock=0,weaponPickupClock=0;
 let lastFrame=0,raf=0;
@@ -143,7 +143,7 @@ let revivesLeft=0;
 let lastEarnedCoins=0;
 let screenShake=0;
 let hasSavedProgress=false;
-let recordBrokenThisRun=false; // Garante que o aviso só dispara uma vez por run
+let recordBrokenThisRun=false;
 
 let cardsLockUntil=0;
 
@@ -154,26 +154,26 @@ const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 const dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
 
 const TYPES={
-  bug:    {hp:1,speed:1.15,r:8, color:"#70e000",score:12,xp:5, damage:6},
-  glitch: {hp:2,speed:1.40,r:10,color:"#00d9ff",score:18,xp:6, damage:8},
-  worm:   {hp:3,speed:0.75,r:14,color:"#ff3864",score:28,xp:8, damage:10},
-  runner: {hp:2,speed:1.80,r:8, color:"#bd83ff",score:22,xp:7, damage:9},
-  tank:   {hp:5,speed:0.60,r:17,color:"#ff9f1c",score:40,xp:12,damage:12}
+  bug:    {hp:1,speed:1.25,r:8, color:"#70e000",score:15,xp:6, damage:8},
+  glitch: {hp:2,speed:1.55,r:10,color:"#00d9ff",score:22,xp:8, damage:11},
+  worm:   {hp:4,speed:0.85,r:14,color:"#ff3864",score:35,xp:11,damage:14},
+  runner: {hp:2,speed:1.95,r:8, color:"#bd83ff",score:28,xp:9, damage:12},
+  tank:   {hp:6,speed:0.70,r:17,color:"#ff9f1c",score:50,xp:16,damage:16}
 };
 
 const WAVES=[
   {t:0,   name:"Inicialização", mult:1.0},
-  {t:60,  name:"Enxame",        mult:1.1},
-  {t:120, name:"Glitches",      mult:1.2},
-  {t:180, name:"Corredores",    mult:1.35},
-  {t:240, name:"Tanques",       mult:1.5},
-  {t:320, name:"⚠ BOSS",        mult:1.7},
-  {t:400, name:"Caos",          mult:1.9},
-  {t:500, name:"⚠ BOSS 2",      mult:2.2},
-  {t:620, name:"Colapso",       mult:2.5}
+  {t:45,  name:"Enxame Rápido", mult:1.2},
+  {t:90,  name:"Glitches",      mult:1.4},
+  {t:135, name:"Corredores",    mult:1.65},
+  {t:180, name:"Tanques",       mult:1.9},
+  {t:240, name:"⚠ BOSS",        mult:2.2},
+  {t:300, name:"Caos Total",    mult:2.6},
+  {t:380, name:"⚠ BOSS 2",      mult:3.1},
+  {t:480, name:"Colapso Final", mult:3.6}
 ];
 
-const MAX_ENEMIES_PER_WAVE=[6,9,14,19,25,32,40,48,58];
+const MAX_ENEMIES_PER_WAVE=[8,12,18,25,32,40,50,60,72];
 function getMaxEnemies(){
   const idx=Math.min(wave,MAX_ENEMIES_PER_WAVE.length-1);
   return MAX_ENEMIES_PER_WAVE[idx];
@@ -205,7 +205,7 @@ function restoreProgress(){
     if(!raw) return false;
     const p=JSON.parse(raw);
     if(!p || !p.player || p.energy<=0) return false;
-    score=p.score||0; level=p.level||1; xp=p.xp||0; maxXp=p.maxXp||45; energy=p.energy||100;
+    score=p.score||0; level=p.level||1; xp=p.xp||0; maxXp=p.maxXp||35; energy=p.energy||100;
     wave=p.wave||0; waveClock=p.waveClock||0; runStartTime=p.runStartTime||performance.now();
     recordBrokenThisRun=p.recordBrokenThisRun||false;
     player={...newPlayer(cv.clientWidth,cv.clientHeight), ...p.player};
@@ -238,7 +238,7 @@ function updateHUD(){
   waveLbl.textContent=(wave+1)+"/"+WAVES.length;
   levelLbl.textContent="Nv. "+level;
   energyLbl.textContent=Math.max(0,Math.ceil(energy))+"%";
-  const estimated=Math.max(0,Math.floor(score/50));
+  const estimated=Math.max(0,Math.floor(score/40));
   coinsLbl.textContent=(meta.coins+(running?estimated:0)).toLocaleString("pt-PT");
   
   const xpPct = clamp((xp / maxXp) * 100, 0, 100);
@@ -390,7 +390,7 @@ function showUpgradeCards(){
     picked=true;
     opt.apply();
     level++;
-    maxXp=Math.floor(maxXp*1.35+20);
+    maxXp=Math.floor(maxXp*1.25+15); // Crescimento de XP mais ágil
     overlay.classList.add("hidden");
     upgradeQueue--;
     levelLbl.style.transform="scale(1.35)";
@@ -521,7 +521,7 @@ function startGame(resume=false){
   }
 
   clearProgress();
-  score=0;level=1;xp=0;maxXp=45;
+  score=0;level=1;xp=0;maxXp=35;
   player=newPlayer(cv.clientWidth,cv.clientHeight);
   energy=player.maxEnergy;
   revivesLeft=meta.perms.revive||0;
@@ -565,7 +565,7 @@ function endGame(){
   saveBest();
   clearProgress();
   const gainRate=1+(meta.perms.coinGain||0)*0.15;
-  lastEarnedCoins=Math.max(1,Math.floor(score/50*gainRate));
+  lastEarnedCoins=Math.max(1,Math.floor(score/40*gainRate));
   meta.coins+=lastEarnedCoins;
   saveMeta(meta);
   updateHUD();
@@ -591,21 +591,21 @@ function spawnEnemy(){
   const pool=["bug","bug","glitch"];
   if(level>=3)pool.push("worm");
   if(level>=5)pool.push("runner");
-  if(level>=8)pool.push("tank");
+  if(level>=7)pool.push("tank");
 
   const type=pool[Math.floor(Math.random()*pool.length)];
   const base=TYPES[type];
   const extra=Math.max(0,level-1);
   const waveMult=WAVES[wave]?WAVES[wave].mult:1.0;
-  const diff=(1+extra*0.035)*waveMult;
+  const diff=(1+extra*0.045)*waveMult; // Progressão de dificuldade mais acelerada
 
   enemies.push({
     x,y,type,
     hp:Math.ceil(base.hp*diff),
     maxHp:Math.ceil(base.hp*diff),
-    speed:base.speed*(1+Math.min(extra,30)*0.008),
+    speed:base.speed*(1+Math.min(extra,30)*0.01),
     radius:base.r,color:base.color,
-    damage:Math.round(base.damage+extra*0.5),
+    damage:Math.round(base.damage+extra*0.7),
     score:base.score,
     xpValue:base.xp
   });
@@ -613,9 +613,9 @@ function spawnEnemy(){
 
 function spawnBoss(){
   const w=cv.clientWidth,h=cv.clientHeight;
-  const hp=60+level*12+wave*35;
-  boss={x:w/2,y:-40,radius:28,hp,maxHp:hp,speed:1.02+Math.min(level,25)*.015,
-        phase:1,attackTimer:100,burstTimer:220};
+  const hp=55+level*10+wave*30;
+  boss={x:w/2,y:-40,radius:28,hp,maxHp:hp,speed:1.08+Math.min(level,25)*.018,
+        phase:1,attackTimer:85,burstTimer:180};
   bossBarContainer.style.display="block";
   updateHUD();
   showAlert("⚠ BOSS DETETADO NA ARENA!");
@@ -643,7 +643,7 @@ function spawnUpgradeModule(){
 /* ── DAMAGE ── */
 function damagePlayer(amount){
   if(player.invulnerable>0)return;
-  const dmg=Math.round(amount+(level-1)*0.5);
+  const dmg=Math.round(amount+(level-1)*0.6);
   energy=Math.max(0,energy-dmg);
   player.invulnerable=.85;
   screenShake=10;
@@ -782,7 +782,7 @@ function update(dt){
   player.y=clamp(player.y+vy*player.speed*step,player.radius,h-player.radius);
 
   weaponPickupClock += step;
-  if(weaponPickupClock >= 2100 && weaponPickups.length < 1){
+  if(weaponPickupClock >= 1800 && weaponPickups.length < 1){ // Aparecem mais frequentemente
     weaponPickupClock = 0;
     const types=["laser","homing","scatter"];
     const chosenType=types[Math.floor(Math.random()*types.length)];
@@ -794,12 +794,12 @@ function update(dt){
 
   if(!boss && !pendingUpgrade && enemies.length < getMaxEnemies()){
     spawnClock+=step;
-    const spawnRate=Math.max(22, 60 - wave*3.2 - level*0.5);
+    const spawnRate=Math.max(18, 50 - wave*3.0 - level*0.6); // Spawns mais rápidos
     if(spawnClock>=spawnRate){spawnClock=0;spawnEnemy()}
   }
 
   cellClock+=step;
-  if(cellClock>=650&&energyCells.length<2){
+  if(cellClock>=600&&energyCells.length<2){
     cellClock=0;
     energyCells.push({x:rand(30,w-30),y:rand(35,h-35),radius:11,value:25,life:600});
   }
@@ -859,11 +859,11 @@ function update(dt){
 
     boss.attackTimer-=step;
     if(boss.attackTimer<=0){
-      boss.attackTimer=Math.max(65,115-level*1.2);
+      boss.attackTimer=Math.max(55,100-level*1.2);
       const ba=Math.atan2(player.y-boss.y,player.x-boss.x);
       for(let k=-1;k<=1;k++){
         const aa=ba+k*.22;
-        bullets.push({x:boss.x,y:boss.y,vx:Math.cos(aa)*2.8,vy:Math.sin(aa)*2.8,
+        bullets.push({x:boss.x,y:boss.y,vx:Math.cos(aa)*3.2,vy:Math.sin(aa)*3.2,
           damage:0,hostile:true,life:110,color:"#ff3864",pierceLeft:0,homing:false});
       }
     }
@@ -871,11 +871,11 @@ function update(dt){
     if(boss.phase===2){
       boss.burstTimer-=step;
       if(boss.burstTimer<=0){
-        boss.burstTimer=130;
-        const n=12;
+        boss.burstTimer=110;
+        const n=14;
         for(let i=0;i<n;i++){
           const aa=i/n*Math.PI*2;
-          bullets.push({x:boss.x,y:boss.y,vx:Math.cos(aa)*2.3,vy:Math.sin(aa)*2.3,
+          bullets.push({x:boss.x,y:boss.y,vx:Math.cos(aa)*2.6,vy:Math.sin(aa)*2.6,
             damage:0,hostile:true,life:140,color:"#ff3864",pierceLeft:0,homing:false});
         }
       }
@@ -897,7 +897,7 @@ function update(dt){
 
   for(const b of bullets){
     if(b.hostile){
-      if(dist(player,b)<player.radius+5){b.life=0;damagePlayer(8)}
+      if(dist(player,b)<player.radius+5){b.life=0;damagePlayer(9)}
       continue;
     }
     if(boss&&dist(b,boss)<boss.radius+4){
@@ -905,14 +905,14 @@ function update(dt){
       burst(b.x,b.y,"#ffb703",5,3);
       b.life=0;
       if(boss.hp<=0){
-        score+=350+level*15+wave*50;
+        score+=400+level*20+wave*60;
         screenShake=15;
         burst(boss.x,boss.y,"#ff0055",50,8);
         boss=null;
         bossBarContainer.style.display="none";
         level+=(level%5===0)?2:1;
         xp=0;
-        maxXp=Math.floor(maxXp*1.35+20);
+        maxXp=Math.floor(maxXp*1.25+15);
         spawnUpgradeModule();
         saveBest();
         saveProgress();
